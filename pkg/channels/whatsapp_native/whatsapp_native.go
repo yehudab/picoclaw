@@ -33,6 +33,7 @@ import (
 	"github.com/sipeed/picoclaw/pkg/config"
 	"github.com/sipeed/picoclaw/pkg/identity"
 	"github.com/sipeed/picoclaw/pkg/logger"
+        "github.com/sipeed/picoclaw/pkg/media"
 	"github.com/sipeed/picoclaw/pkg/utils"
 )
 
@@ -340,61 +341,167 @@ func (c *WhatsAppNativeChannel) reconnectWithBackoff() {
 	}
 }
 
+//func (c *WhatsAppNativeChannel) handleIncoming(evt *events.Message) {
+//	if evt.Message == nil {
+//		return
+//	}
+//	senderID := evt.Info.Sender.String()
+//	chatID := evt.Info.Chat.String()
+//	content := evt.Message.GetConversation()
+//	if content == "" && evt.Message.ExtendedTextMessage != nil {
+//		content = evt.Message.ExtendedTextMessage.GetText()
+//	}
+//	content = utils.SanitizeMessageContent(content)
+//
+//	if content == "" {
+//		return
+//	}
+//
+//	var mediaPaths []string
+//
+//	metadata := make(map[string]string)
+//	metadata["message_id"] = evt.Info.ID
+//	if evt.Info.PushName != "" {
+//		metadata["user_name"] = evt.Info.PushName
+//	}
+//	if evt.Info.Chat.Server == types.GroupServer {
+//		metadata["peer_kind"] = "group"
+//		metadata["peer_id"] = chatID
+//	} else {
+//		metadata["peer_kind"] = "direct"
+//		metadata["peer_id"] = senderID
+//	}
+//
+//	peerKind := "direct"
+//	if evt.Info.Chat.Server == types.GroupServer {
+//		peerKind = "group"
+//	}
+//	peer := bus.Peer{Kind: peerKind, ID: chatID}
+//	messageID := evt.Info.ID
+//	sender := bus.SenderInfo{
+//		Platform:    "whatsapp",
+//		PlatformID:  senderID,
+//		CanonicalID: identity.BuildCanonicalID("whatsapp", senderID),
+//		DisplayName: evt.Info.PushName,
+//	}
+//
+//	if !c.IsAllowedSender(sender) {
+//		return
+//	}
+//
+//	logger.DebugCF(
+//		"whatsapp",
+//		"WhatsApp message received",
+//		map[string]any{"sender_id": senderID, "content_preview": utils.Truncate(content, 50)},
+//	)
+//	c.HandleMessage(c.runCtx, peer, messageID, senderID, chatID, content, mediaPaths, metadata, sender)
+//}
+
 func (c *WhatsAppNativeChannel) handleIncoming(evt *events.Message) {
-	if evt.Message == nil {
-		return
-	}
-	senderID := evt.Info.Sender.String()
-	chatID := evt.Info.Chat.String()
-	content := evt.Message.GetConversation()
-	if content == "" && evt.Message.ExtendedTextMessage != nil {
-		content = evt.Message.ExtendedTextMessage.GetText()
-	}
-	content = utils.SanitizeMessageContent(content)
+      if evt.Message == nil {
+              return
+      }
+      senderID := evt.Info.Sender.String()
+      chatID := evt.Info.Chat.String()
+      content := evt.Message.GetConversation()
+      if content == "" && evt.Message.ExtendedTextMessage != nil {
+              content = evt.Message.ExtendedTextMessage.GetText()
+      }
+      content = utils.SanitizeMessageContent(content)
 
-	if content == "" {
-		return
-	}
+      var mediaPaths []string
+      var savedImagePath string
+    
+      if img := evt.Message.GetImageMessage(); img != nil {
+          caption := utils.SanitizeMessageContent(img.GetCaption())
+          if caption != "" && content == "" {
+              content = caption
+          }
+          data, err := c.client.DownloadAny(c.runCtx, evt.Message)
+          if err != nil {
+              logger.WarnCF("whatsapp", "Failed to download image", map[string]any{"error": err.Error()})
+          } else {
+              waMediaDir := filepath.Join(os.Getenv("HOME"), ".picoclaw", "workspace", "media")
+              if err := os.MkdirAll(waMediaDir, 0o700); err != nil {
+                  waMediaDir = "" // fallback to system temp
+              }
+              tmpFile, err := os.CreateTemp(waMediaDir, "wa-img-*.jpg")
+              if err == nil {
+                  if _, err = tmpFile.Write(data); err == nil {
+                      tmpPath := tmpFile.Name()
+                      tmpFile.Close()
+                      logger.InfoCF("whatsapp", "Image saved", map[string]any{"path": tmpPath, "bytes": len(data)})
+                      savedImagePath = tmpPath
+                      if store := c.GetMediaStore(); store != nil {
+                          scope := channels.BuildMediaScope("whatsapp_native", chatID, evt.Info.ID)
+                          ref, err := store.Store(tmpPath, media.MediaMeta{
+                              Filename:    "wa-image.jpg",
+                              ContentType: "image/jpeg",
+                          }, scope)
+                          if err == nil {
+                              mediaPaths = append(mediaPaths, ref)
+                          } else {
+                              logger.WarnCF("whatsapp", "Failed to register image", map[string]any{"error": err.Error()})
+                          }
+                      }
+                  } else {
+                      tmpFile.Close()
+                  }
+              }
+          }
+          if content == "" {
+              if savedImagePath != "" {
+                  content = fmt.Sprintf("[image saved at %s sender_id=%s sender_name=%s]", 
+		      savedImagePath, senderID, evt.Info.PushName)
+              } else {
+                  content = "[image]"
+              }
+          }
+      }
+    
 
-	var mediaPaths []string
+      if content == "" {
+              return
+      }
 
-	metadata := make(map[string]string)
-	metadata["message_id"] = evt.Info.ID
-	if evt.Info.PushName != "" {
-		metadata["user_name"] = evt.Info.PushName
-	}
-	if evt.Info.Chat.Server == types.GroupServer {
-		metadata["peer_kind"] = "group"
-		metadata["peer_id"] = chatID
-	} else {
-		metadata["peer_kind"] = "direct"
-		metadata["peer_id"] = senderID
-	}
+      metadata := make(map[string]string)
+      metadata["message_id"] = evt.Info.ID
+      if evt.Info.PushName != "" {
+              metadata["user_name"] = evt.Info.PushName
+      }
+      if evt.Info.Chat.Server == types.GroupServer {
+              metadata["peer_kind"] = "group"
+              metadata["peer_id"] = chatID
+      } else {
+              metadata["peer_kind"] = "direct"
+              metadata["peer_id"] = senderID
+      }
 
-	peerKind := "direct"
-	if evt.Info.Chat.Server == types.GroupServer {
-		peerKind = "group"
-	}
-	peer := bus.Peer{Kind: peerKind, ID: chatID}
-	messageID := evt.Info.ID
-	sender := bus.SenderInfo{
-		Platform:    "whatsapp",
-		PlatformID:  senderID,
-		CanonicalID: identity.BuildCanonicalID("whatsapp", senderID),
-		DisplayName: evt.Info.PushName,
-	}
+      peerKind := "direct"
+      if evt.Info.Chat.Server == types.GroupServer {
+              peerKind = "group"
+      }
+      peer := bus.Peer{Kind: peerKind, ID: chatID}
+      messageID := evt.Info.ID
+      sender := bus.SenderInfo{
+              Platform:    "whatsapp",
+              PlatformID:  senderID,
+              CanonicalID: identity.BuildCanonicalID("whatsapp", senderID),
+              DisplayName: evt.Info.PushName,
+      }
 
-	if !c.IsAllowedSender(sender) {
-		return
-	}
+      if !c.IsAllowedSender(sender) {
+              return
+      }
 
-	logger.DebugCF(
-		"whatsapp",
-		"WhatsApp message received",
-		map[string]any{"sender_id": senderID, "content_preview": utils.Truncate(content, 50)},
-	)
-	c.HandleMessage(c.runCtx, peer, messageID, senderID, chatID, content, mediaPaths, metadata, sender)
+      logger.DebugCF(
+              "whatsapp",
+              "WhatsApp message received",
+              map[string]any{"sender_id": senderID, "content_preview": utils.Truncate(content, 50)},
+      )
+      c.HandleMessage(c.runCtx, peer, messageID, senderID, chatID, content, mediaPaths, metadata, sender)
 }
+
 
 func (c *WhatsAppNativeChannel) Send(ctx context.Context, msg bus.OutboundMessage) error {
 	if !c.IsRunning() {

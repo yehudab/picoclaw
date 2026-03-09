@@ -16,7 +16,7 @@ LDFLAGS=-ldflags "-X $(INTERNAL).version=$(VERSION) -X $(INTERNAL).gitCommit=$(G
 
 # Go variables
 GO?=CGO_ENABLED=0 go
-GOFLAGS?=-v -tags stdjson
+GOFLAGS?=-v -tags=stdjson,whatsapp_native
 
 # Patch MIPS LE ELF e_flags (offset 36) for NaN2008-only kernels (e.g. Ingenic X2600).
 #

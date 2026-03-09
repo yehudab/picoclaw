@@ -20,6 +20,13 @@ config.json
 sessions/
 build/
 
+docker/data/session/
+docker/data/workspace/cron/
+docker/data/workspace/heartbeat.log
+docker/data/workspace/media/
+docker/data/workspace/state/
+docker/data/workspace/*.jpg
+
 # Coverage
 
 # Secrets & Config (keep templates, ignore actual secrets)

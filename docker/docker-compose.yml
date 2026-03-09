@@ -22,13 +22,42 @@ services:
   #   docker compose -f docker/docker-compose.yml up picoclaw-gateway
   # ─────────────────────────────────────────────
   picoclaw-gateway:
-    image: docker.io/sipeed/picoclaw:latest
+    # Remove or comment out 'image: docker.io/sipeed/picoclaw:latest'
+    build:
+      context: ..            # Points to the root directory where the Makefile is
+      dockerfile: docker/Dockerfile  # Points to the Dockerfile here
     container_name: picoclaw-gateway
     restart: on-failure
     profiles:
       - gateway
-    # Uncomment to access host network; leave commented unless needed.
-    #extra_hosts:
-    #  - "host.docker.internal:host-gateway"
     volumes:
-      - ./data:/root/.picoclaw
+      - type: bind
+        source: /home/ubuntu/picoclaw/docker/data
+        target: /home/picoclaw/.picoclaw
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+    networks:
+      - botnet
+
+  scorer:
+    build:
+      context: ../../connections-score-analyzer
+      dockerfile: Dockerfile
+    container_name: connections-scorer
+    restart: on-failure
+    profiles:
+      - gateway
+    volumes:
+      - scorer-data:/data
+    networks:
+      - botnet
+
+networks:
+  botnet:
+
+volumes:
+  scorer-data:
+
