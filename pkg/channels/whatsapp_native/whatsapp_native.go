@@ -451,8 +451,8 @@ func (c *WhatsAppNativeChannel) handleIncoming(evt *events.Message) {
           }
           if content == "" {
               if savedImagePath != "" {
-                  content = fmt.Sprintf("[image saved at %s sender_id=%s sender_name=%s]", 
-		      savedImagePath, senderID, evt.Info.PushName)
+                  content = fmt.Sprintf("[image saved at %s sender_id=%s sender_name=%s chat_id=%s]",
+                      savedImagePath, senderID, evt.Info.PushName, chatID)
               } else {
                   content = "[image]"
               }

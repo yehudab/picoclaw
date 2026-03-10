@@ -1,10 +1,10 @@
 #!/bin/sh
-# Usage: curl.sh <path>
-# Example: curl.sh missing
+# Usage: curl.sh missing <chat_id>
 
-if [ -z "$1" ]; then
-  echo '{"error":"path required"}'; exit 1
+if [ "$1" != "missing" ] || [ -z "$2" ]; then
+  echo '{"error":"usage: curl.sh missing <chat_id>"}'; exit 1
 fi
 
-curl -s "http://scorer:5000/$1"
+BASE="${SCORER_URL:-http://scorer:5000}"
+curl -s "${BASE}/missing?chat_id=$2"
 
