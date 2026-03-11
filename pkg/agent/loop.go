@@ -55,6 +55,8 @@ type processOptions struct {
 	SessionKey      string   // Session identifier for history/context
 	Channel         string   // Target channel for tool execution
 	ChatID          string   // Target chat ID for tool execution
+	SenderID        string   // ID of the message sender
+	PeerKind        string   // "group" or "direct"
 	UserMessage     string   // User message content (may include prefix)
 	Media           []string // media:// refs from inbound message
 	DefaultResponse string   // Response when LLM returns empty
@@ -657,6 +659,8 @@ func (al *AgentLoop) processMessage(ctx context.Context, msg bus.InboundMessage)
 		SessionKey:      sessionKey,
 		Channel:         msg.Channel,
 		ChatID:          msg.ChatID,
+		SenderID:        msg.SenderID,
+		PeerKind:        inboundMetadata(msg, "peer_kind"),
 		UserMessage:     msg.Content,
 		Media:           msg.Media,
 		DefaultResponse: defaultResponse,
@@ -800,6 +804,8 @@ func (al *AgentLoop) runAgentLoop(
 		opts.Media,
 		opts.Channel,
 		opts.ChatID,
+		opts.SenderID,
+		opts.PeerKind,
 	)
 
 	// Resolve media:// refs to base64 data URLs (streaming)
@@ -1068,6 +1074,7 @@ func (al *AgentLoop) runLLMIteration(
 				messages = agent.ContextBuilder.BuildMessages(
 					newHistory, newSummary, "",
 					nil, opts.Channel, opts.ChatID,
+					opts.SenderID, opts.PeerKind,
 				)
 				continue
 			}
