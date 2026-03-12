@@ -69,7 +69,10 @@ func NewWhatsAppNativeChannel(
 	bus *bus.MessageBus,
 	storePath string,
 ) (channels.Channel, error) {
-	base := channels.NewBaseChannel("whatsapp_native", cfg, bus, cfg.AllowFrom, channels.WithMaxMessageLength(65536))
+	base := channels.NewBaseChannel("whatsapp_native", cfg, bus, cfg.AllowFrom,
+		channels.WithMaxMessageLength(65536),
+		channels.WithGroupTrigger(cfg.GroupTrigger),
+	)
 	if storePath == "" {
 		storePath = "whatsapp"
 	}
@@ -492,6 +495,14 @@ func (c *WhatsAppNativeChannel) handleIncoming(evt *events.Message) {
 
       if !c.IsAllowedSender(sender) {
               return
+      }
+
+      if peer.Kind == "group" {
+              if should, _ := c.ShouldRespondInGroup(false, content); !should {
+                      logger.DebugCF("whatsapp", "Group message ignored (no trigger match)",
+                              map[string]any{"chat_id": chatID, "preview": utils.Truncate(content, 50)})
+                      return
+              }
       }
 
       logger.DebugCF(
