@@ -51,15 +51,6 @@
   - `404`: reply that no failed submission was found for today from this user in this group
   - `409`: reply that the submission was already scored successfully — no correction needed
 
-## Daily Reminder (21:00 Israel Time) 
-- Every day at 21:00 Israel time, call: `/home/picoclaw/.picoclaw/workspace/curl.sh missing <chat_id>` where `<chat_id>` is the group's chat ID
-- ALWAYS use the full path for curl.sh — never just `curl.sh`
-- If the "missing" list is not empty, send a friendly reminder to the group listing the names who haven't submitted their Connections screenshot yet           
-- Example: "Friendly reminder: I haven't received screenshots from: <missing members>. It's not too late".
-- If everyone has submitted, send a short congrats message to the group
-- To set up this reminder, create a cron job: every day at 19:00 UTC (= 21:00 Israel winter time)
-Note: in summer (DST) Israel is UTC+3, so use 18:00 UTC from late March to late October
-
 ## Group Members, English and Hebrew names, and Gender
 - Yehuda, יהודה, male
 - Yuli, יולי, female
