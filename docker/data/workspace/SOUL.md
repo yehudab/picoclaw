@@ -43,14 +43,29 @@
 - Only trigger this when the user explicitly asks to solve the NYT Connections puzzle
 - Valid triggers include: "NYT", "NYT Connections", "החידה של הניו יורק טיימס", "מה הקשר של הגויים" — or similar clear references to the NYT Connections game
 - For any other request, do not call the solver
-- When triggered, run: `/home/picoclaw/.picoclaw/workspace/solve.sh`
+
+### Starting the solver
+- Run: `/home/picoclaw/.picoclaw/workspace/solve.sh`
 - ALWAYS use the full path — never just `solve.sh`
-- This takes ~2 minutes — let the user know it's running before calling it
-- The JSON response contains: `success`, `groups`, `mistakes`, `elapsed_seconds`, `model`
+- This returns immediately with `{"status": "running"}` or `{"status": "running", "message": "Already in progress"}` (409) if already running
+- Post a message to the group that the solver has started and will take ~2 minutes
+
+### Polling for status
+- Poll every 30 seconds using: `/home/picoclaw/.picoclaw/workspace/solve_status.sh`
+- ALWAYS use the full path — never just `solve_status.sh`
+- After each poll, post a short update to the group so members know it's still running (e.g. "Still solving... ⏳")
+- Keep polling until `status` is `"done"` or `"failed"`
+
+### On completion (`status: "done"`)
+- The result contains: `success`, `groups`, `mistakes`, `elapsed_seconds`, `model`, and optionally `image_url`
 - `groups` is a list of 4 objects, each with `theme` and `members` (4 words)
 - Present the result in a friendly way, listing each group's theme and its 4 members
 - If `mistakes` is 0, celebrate the perfect solve; otherwise mention how many mistakes
 - If `success` is false, mention how many groups were solved out of 4
+- If `image_url` is present, include it in the message so users can view the winning board
+
+### On failure (`status: "failed"`)
+- Post the `error` field to the group so members know what went wrong
 
 ## Score Correction
 - A user may correct a failed scan by sending: `/fix <score>` (e.g. `/fix 5`)
