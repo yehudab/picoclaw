@@ -44,28 +44,47 @@
 - Valid triggers include: "NYT", "NYT Connections", "החידה של הניו יורק טיימס", "מה הקשר של הגויים" — or similar clear references to the NYT Connections game
 - For any other request, do not call the solver
 
-### Starting the solver
+### Step 1 — Start the solver
 - Run: `/home/picoclaw/.picoclaw/workspace/solve.sh`
 - ALWAYS use the full path — never just `solve.sh`
-- This returns immediately with `{"status": "running"}` or `{"status": "running", "message": "Already in progress"}` (409) if already running
-- Post a message to the group that the solver has started and will take ~2 minutes
+- Post a message to the group that the solver has started and will take about 2 minutes
+- Immediately start the cron job described in Step 2
 
-### Polling for status
-- Poll every 30 seconds using: `/home/picoclaw/.picoclaw/workspace/solve_status.sh`
+### Step 2 — Start a cron job to poll for status
+- Schedule a cron job that runs **every 30 seconds**
+- Each execution runs: `/home/picoclaw/.picoclaw/workspace/solve_status.sh`
 - ALWAYS use the full path — never just `solve_status.sh`
-- After each poll, post a short update to the group so members know it's still running (e.g. "Still solving... ⏳")
-- Keep polling until `status` is `"done"` or `"failed"`
+- After each execution, post a short "still working" update to the group (e.g. "עדיין עובד... ⏳")
+- Stop the cron job as soon as `status` is `"done"` or `"failed"` — do not poll again after that
 
-### On completion (`status: "done"`)
-- The result contains: `success`, `groups`, `mistakes`, `elapsed_seconds`, `model`, and optionally `image_url`
-- `groups` is a list of 4 objects, each with `theme` and `members` (4 words)
-- Present the result in a friendly way, listing each group's theme and its 4 members
-- If `mistakes` is 0, celebrate the perfect solve; otherwise mention how many mistakes
-- If `success` is false, mention how many groups were solved out of 4
-- If `image_url` is present, include it in the message so users can view the winning board
+### Step 3 — Interpret and post the final result
 
-### On failure (`status: "failed"`)
-- Post the `error` field to the group so members know what went wrong
+**If `status` is `"done"`:**
+
+The JSON contains: `success` (bool), `groups` (list), `mistakes` (int), `elapsed_seconds` (float), `model` (string), optionally `image_url` (string).
+
+Translate the JSON into a human-readable message:
+- `groups` is a list of 4 objects, each with `theme` (category name) and `members` (list of 4 words)
+- List each group on its own line: the theme as a bold title, followed by its 4 members
+- If `mistakes` is 0 — celebrate a perfect solve
+- If `mistakes` > 0 — mention how many mistakes were made
+- If `success` is false — mention that the puzzle was not fully solved and how many groups were found
+- If `image_url` is present — include it in the message so users can view the winning board
+
+Example output format:
+```
+פתרנו את החידה! 🎉 (0 טעויות)
+
+🟨 STORYBOOK CHARACTERS: CHICKEN LITTLE, FROG PRINCE, GINGERBREAD MAN, GOLDILOCKS
+🟩 GOOD LUCK CHARMS: EVIL EYE, FOUR-LEAF CLOVER, HORSESHOE, RABBIT'S FOOT
+🟦 THINGS THAT CHANGE COLOR: CHAMELEON, MOOD RING, SUNSET, TRAFFIC LIGHT
+🟪 SECOND WORD IS A MUSIC GENRE: BABY BLUES, PET ROCK, SCRAP METAL, SODA POP
+
+📸 https://apps.yehudab.com/solver-images/2026-03-19.png
+```
+
+**If `status` is `"failed"`:**
+- Post a friendly error message to the group including the `error` field
 
 ## Score Correction
 - A user may correct a failed scan by sending: `/fix <score>` (e.g. `/fix 5`)
