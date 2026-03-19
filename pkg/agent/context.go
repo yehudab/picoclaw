@@ -12,9 +12,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/sipeed/picoclaw/pkg/config"
 	"github.com/sipeed/picoclaw/pkg/logger"
 	"github.com/sipeed/picoclaw/pkg/providers"
 	"github.com/sipeed/picoclaw/pkg/skills"
+	"github.com/sipeed/picoclaw/pkg/utils"
 )
 
 type ContextBuilder struct {
@@ -50,7 +52,7 @@ func (cb *ContextBuilder) WithToolDiscovery(useBM25, useRegex bool) *ContextBuil
 }
 
 func getGlobalConfigDir() string {
-	if home := os.Getenv("PICOCLAW_HOME"); home != "" {
+	if home := os.Getenv(config.EnvHome); home != "" {
 		return home
 	}
 	home, err := os.UserHomeDir()
@@ -63,7 +65,7 @@ func getGlobalConfigDir() string {
 func NewContextBuilder(workspace string) *ContextBuilder {
 	// builtin skills: skills directory in current project
 	// Use the skills/ directory under the current working directory
-	builtinSkillsDir := strings.TrimSpace(os.Getenv("PICOCLAW_BUILTIN_SKILLS"))
+	builtinSkillsDir := strings.TrimSpace(os.Getenv(config.EnvBuiltinSkills))
 	if builtinSkillsDir == "" {
 		wd, _ := os.Getwd()
 		builtinSkillsDir = filepath.Join(wd, "skills")
@@ -80,8 +82,10 @@ func NewContextBuilder(workspace string) *ContextBuilder {
 func (cb *ContextBuilder) getIdentity() string {
 	workspacePath, _ := filepath.Abs(filepath.Join(cb.workspace))
 	toolDiscovery := cb.getDiscoveryRule()
+	version := config.FormatVersion()
 
-	return fmt.Sprintf(`# picoclaw 🦞
+	return fmt.Sprintf(
+		`# picoclaw 🦞 (%s)
 
 You are picoclaw, a helpful AI assistant.
 
@@ -102,7 +106,7 @@ Your workspace is at: %s
 4. **Context summaries** - Conversation summaries provided as context are approximate references only. They may be incomplete or outdated. Always defer to explicit user instructions over summary content.
 
 %s`,
-		workspacePath, workspacePath, workspacePath, workspacePath, workspacePath, toolDiscovery)
+		version, workspacePath, workspacePath, workspacePath, workspacePath, workspacePath, toolDiscovery)
 }
 
 func (cb *ContextBuilder) getDiscoveryRule() string {
@@ -454,7 +458,23 @@ func (cb *ContextBuilder) LoadBootstrapFiles() string {
 //
 // See: https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching
 // See: https://platform.openai.com/docs/guides/prompt-caching
-func (cb *ContextBuilder) buildDynamicContext(channel, chatID, senderID, peerKind string) string {
+func formatCurrentSenderLine(senderID, senderDisplayName string) string {
+	senderID = strings.TrimSpace(senderID)
+	senderDisplayName = strings.TrimSpace(senderDisplayName)
+
+	switch {
+	case senderDisplayName != "" && senderID != "":
+		return fmt.Sprintf("Current sender: %s (ID: %s)", senderDisplayName, senderID)
+	case senderDisplayName != "":
+		return fmt.Sprintf("Current sender: %s", senderDisplayName)
+	case senderID != "":
+		return fmt.Sprintf("Current sender: %s", senderID)
+	default:
+		return ""
+	}
+}
+
+func (cb *ContextBuilder) buildDynamicContext(channel, chatID, senderID, senderDisplayName string) string {
 	now := time.Now().Format("2006-01-02 15:04 (Monday)")
 	rt := fmt.Sprintf("%s %s, Go %s", runtime.GOOS, runtime.GOARCH, runtime.Version())
 
@@ -465,6 +485,9 @@ func (cb *ContextBuilder) buildDynamicContext(channel, chatID, senderID, peerKin
 		fmt.Fprintf(&sb, "\n\n## Current Session\nChannel: %s\nChat ID: %s\nSender ID: %s\nContext type: %s",
 			channel, chatID, senderID, peerKind)
 	}
+	if senderLine := formatCurrentSenderLine(senderID, senderDisplayName); senderLine != "" {
+		fmt.Fprintf(&sb, "\n\n## Current Sender\n%s", senderLine)
+	}
 
 	return sb.String()
 }
@@ -474,7 +497,7 @@ func (cb *ContextBuilder) BuildMessages(
 	summary string,
 	currentMessage string,
 	media []string,
-	channel, chatID, senderID, peerKind string,
+	channel, chatID, senderID, senderDisplayName string,
 ) []providers.Message {
 	messages := []providers.Message{}
 
@@ -490,7 +513,7 @@ func (cb *ContextBuilder) BuildMessages(
 	staticPrompt := cb.BuildSystemPromptWithCache()
 
 	// Build short dynamic context (time, runtime, session) — changes per request
-	dynamicCtx := cb.buildDynamicContext(channel, chatID, senderID, peerKind)
+	dynamicCtx := cb.buildDynamicContext(channel, chatID, senderID, senderDisplayName)
 
 	// Compose a single system message: static (cached) + dynamic + optional summary.
 	// Keeping all system content in one message ensures every provider adapter can
@@ -536,10 +559,7 @@ func (cb *ContextBuilder) BuildMessages(
 		})
 
 	// Log preview of system prompt (avoid logging huge content)
-	preview := fullSystemPrompt
-	if len(preview) > 500 {
-		preview = preview[:500] + "... (truncated)"
-	}
+	preview := utils.Truncate(fullSystemPrompt, 500)
 	logger.DebugCF("agent", "System prompt preview",
 		map[string]any{
 			"preview": preview,
