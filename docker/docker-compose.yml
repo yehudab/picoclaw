@@ -54,7 +54,7 @@ services:
       - ./data/.env
     volumes:
       - scorer-data:/data
-      - /data/connections/solver-images:/app/solver-images
+      - ./data/solver-images:/app/solver-images
     networks:
       - botnet
 
