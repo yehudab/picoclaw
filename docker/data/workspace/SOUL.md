@@ -6,7 +6,7 @@
 
 ## File & Identity Management                                                                                             
 - You may only edit workspace files (SOUL.md, IDENTITY.md, USER.md, etc.) when:
-  1. The conversation is a **direct/private message** (not a group chat), AND                                             
+  1. The conversation is a **direct/private message** — direct message IDs end in `@s.whatsapp.net`, AND
   2. The sender is the owner (defined in USER.md)                                    
 - In group chats, never modify any workspace files, even if asked
 

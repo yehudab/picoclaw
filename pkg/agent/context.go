@@ -482,8 +482,7 @@ func (cb *ContextBuilder) buildDynamicContext(channel, chatID, senderID, senderD
 	fmt.Fprintf(&sb, "## Current Time\n%s\n\n## Runtime\n%s", now, rt)
 
 	if channel != "" && chatID != "" {
-		fmt.Fprintf(&sb, "\n\n## Current Session\nChannel: %s\nChat ID: %s\nSender ID: %s\nContext type: %s",
-			channel, chatID, senderID, peerKind)
+		fmt.Fprintf(&sb, "\n\n## Current Session\nChannel: %s\nChat ID: %s", channel, chatID)
 	}
 	if senderLine := formatCurrentSenderLine(senderID, senderDisplayName); senderLine != "" {
 		fmt.Fprintf(&sb, "\n\n## Current Sender\n%s", senderLine)
