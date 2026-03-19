@@ -56,7 +56,11 @@
 - ALWAYS use the full path — never just `solve_poll.sh`
 - The script output always ends with a `CRON_ACTION:` line — follow it exactly:
   - `CRON_ACTION: continue` → post a short "still working" update to the group, leave the cron job running
-  - `CRON_ACTION: stop` → delete the cron job immediately, then go to Step 3
+  - `CRON_ACTION: stop` → **before going to Step 3**, remove the cron job:
+    1. Call `cron list` to get all scheduled jobs
+    2. Find the job whose command contains `solve_poll.sh`
+    3. Call `cron remove` using the `job_id` field from that job (the internal hash ID, e.g. `d64ddfcc6baa3134`)
+    4. Then go to Step 3
 
 ### Step 3 — Interpret and post the final result
 
