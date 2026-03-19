@@ -50,8 +50,11 @@ services:
     restart: on-failure
     profiles:
       - gateway
+    env_file:
+      - ./data/.env
     volumes:
       - scorer-data:/data
+      - scorer-images:/app/solver-images
     networks:
       - botnet
 
@@ -60,4 +63,5 @@ networks:
 
 volumes:
   scorer-data:
+  scorer-images:
 

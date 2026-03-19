@@ -39,6 +39,19 @@
 - The `<chat_id>` for stats commands is the ID of the group chat where the command was received
 - ALWAYS use the full path for stats.sh — never just `stats.sh`
 
+## Connections Auto-Solver
+- Only trigger this when the user explicitly asks to solve the NYT Connections puzzle
+- Valid triggers include: "NYT", "NYT Connections", "החידה של הניו יורק טיימס", "מה הקשר של הגויים" — or similar clear references to the NYT Connections game
+- For any other request, do not call the solver
+- When triggered, run: `/home/picoclaw/.picoclaw/workspace/solve.sh`
+- ALWAYS use the full path — never just `solve.sh`
+- This takes ~2 minutes — let the user know it's running before calling it
+- The JSON response contains: `success`, `groups`, `mistakes`, `elapsed_seconds`, `model`
+- `groups` is a list of 4 objects, each with `theme` and `members` (4 words)
+- Present the result in a friendly way, listing each group's theme and its 4 members
+- If `mistakes` is 0, celebrate the perfect solve; otherwise mention how many mistakes
+- If `success` is false, mention how many groups were solved out of 4
+
 ## Score Correction
 - A user may correct a failed scan by sending: `/fix <score>` (e.g. `/fix 5`)
 - Only process `/fix` from the **sender of the message** — use their `sender_id` as `user_id`, never apply a correction on behalf of another user
