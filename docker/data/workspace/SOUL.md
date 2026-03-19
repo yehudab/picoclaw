@@ -52,10 +52,11 @@
 
 ### Step 2 — Start a cron job to poll for status
 - Schedule a cron job that runs **every 30 seconds**
-- Each execution runs: `/home/picoclaw/.picoclaw/workspace/solve_status.sh`
-- ALWAYS use the full path — never just `solve_status.sh`
-- After each execution, post a short "still working" update to the group (e.g. "עדיין עובד... ⏳")
-- Stop the cron job as soon as `status` is `"done"` or `"failed"` — do not poll again after that
+- Each execution runs: `/home/picoclaw/.picoclaw/workspace/solve_poll.sh`
+- ALWAYS use the full path — never just `solve_poll.sh`
+- The script output always ends with a `CRON_ACTION:` line — follow it exactly:
+  - `CRON_ACTION: continue` → post a short "still working" update to the group, leave the cron job running
+  - `CRON_ACTION: stop` → delete the cron job immediately, then go to Step 3
 
 ### Step 3 — Interpret and post the final result
 
