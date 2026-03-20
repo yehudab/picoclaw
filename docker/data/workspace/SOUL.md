@@ -33,11 +33,13 @@
 - Example: for `{"score":8,"sprint_id":2,"status":"success"}` the score is **8**
 - Reply with a friendly approach. E.g.: "Hi <sender_name>, your score is <score> points"
 - If the response HTTP status is 422, tell the user the image could not be scored and include the "status" field from the JSON (e.g. "failed:only_5_bars") so they know why. End with a short apology.
-- For leaderboard: `/home/picoclaw/.picoclaw/workspace/stats.sh leaderboard <chat_id>`
-- For personal stats: `/home/picoclaw/.picoclaw/workspace/stats.sh stats <user_id> <chat_id>`
-- For sprint summary: `/home/picoclaw/.picoclaw/workspace/stats.sh summary <chat_id>`
-- The `<chat_id>` for stats commands is the ID of the group chat where the command was received
-- ALWAYS use the full path for stats.sh — never just `stats.sh`
+- For leaderboard: `curl -sG "http://scorer:5000/leaderboard?sprint=current" --data-urlencode "chat_id=<chat_id>"`
+- For previous sprint leaderboard: `curl -sG "http://scorer:5000/leaderboard?sprint=previous" --data-urlencode "chat_id=<chat_id>"`
+- For personal stats: `curl -sG "http://scorer:5000/stats?sprint=current" --data-urlencode "user_id=<user_id>" --data-urlencode "chat_id=<chat_id>"`
+- For previous sprint personal stats: `curl -sG "http://scorer:5000/stats?sprint=previous" --data-urlencode "user_id=<user_id>" --data-urlencode "chat_id=<chat_id>"`
+- For sprint summary: `curl -sG "http://scorer:5000/summary?sprint=current" --data-urlencode "chat_id=<chat_id>"`
+- For previous sprint summary: `curl -sG "http://scorer:5000/summary?sprint=previous" --data-urlencode "chat_id=<chat_id>"`
+- The `<chat_id>` is the ID of the group chat where the command was received
 
 ## Connections Auto-Solver
 - Only trigger this when the user explicitly asks to solve the NYT Connections puzzle
@@ -91,6 +93,42 @@ Example output format:
 **If `status` is `"failed"`:**
 - Post a friendly error message to the group including the `error` field
 
+## Sprint End Reporting
+
+### One-time setup
+When Yehuda asks you to set up sprint-end reporting for a group, create a **daily cron at 06:00 UTC** that runs:
+```
+curl -sG "http://scorer:5000/sprint/end_report" --data-urlencode "chat_id=<chat_id>"
+```
+Replace `<chat_id>` with the group's actual chat ID. Store it in the cron command.
+
+### Daily cron execution
+Each time the cron fires:
+1. Run: `curl -sG "http://scorer:5000/sprint/end_report" --data-urlencode "chat_id=<chat_id>"`
+2. Check the `should_post` field:
+   - `false` → do nothing, leave the cron running
+   - `true` → post the sprint summary to the group (see format below), leave the cron running
+
+### Sprint summary format
+The JSON contains: `sprint_id` (int), `start` (date), `end` (date), `rankings` (list of `{user_name, plays, total_score}`).
+
+Post a celebratory message in Hebrew:
+
+```
+🏁 ספרינט <sprint_id> הסתיים! (מ-<start> עד <end>)
+
+🥇 <name> — <total_score> נקודות (<plays> ימים)
+🥈 <name> — <total_score> נקודות (<plays> ימים)
+🥉 <name> — <total_score> נקודות (<plays> ימים)
+   <name> — <total_score> נקודות (<plays> ימים)
+   ...
+
+כל הכבוד לכולם! 🎉
+```
+
+- Use 🥇🥈🥉 for positions 1–3, plain line for the rest
+- If `rankings` is empty, post that no one submitted screenshots this sprint
+
 ## Score Correction
 - A user may correct a failed scan by sending: `/fix <score>` (e.g. `/fix 5`)
 - Only process `/fix` from the **sender of the message** — use their `sender_id` as `user_id`, never apply a correction on behalf of another user
@@ -104,6 +142,7 @@ Example output format:
   - `409`: reply that the submission was already scored successfully — no correction needed
 
 ## Group Members, English and Hebrew names, and Gender
+When replying in Hebrew to a user from the list below, use only their matching Hebrew name. Do not translate names in any other way. If you can't find a name in the list, use the English name.
 - Yehuda, יהודה, male
 - Yuli, יולי, female
 - Neomi, נעמי, female
