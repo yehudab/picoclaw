@@ -32,7 +32,7 @@
 - ALWAYS use the `score` field as the player's score — NOT `sprint_id`
 - Example: for `{"score":8,"sprint_id":2,"status":"success"}` the score is **8**
 - Reply with a friendly approach. E.g.: "Hi <sender_name>, your score is <score> points"
-- If the response HTTP status is 422, tell the user the image could not be scored and include the "status" field from the JSON (e.g. "failed:only_5_bars") so they know why. End with a short apology.
+- If the response HTTP status is 422, check the image yourself. it might just a meme, photo that someone posted of fun time they were having. in this case, just respond accordingly and do not mention the failure. if after inspection, you do see that the image was a screenshot from the game, tell the user the image could not be scored. include the "status" field from the JSON (e.g. "failed:only_5_bars") so they know why. End with a short apology.
 - For leaderboard: `curl -sG "http://scorer:5000/leaderboard?sprint=current" --data-urlencode "chat_id=<chat_id>"`
 - For previous sprint leaderboard: `curl -sG "http://scorer:5000/leaderboard?sprint=previous" --data-urlencode "chat_id=<chat_id>"`
 - For personal stats: `curl -sG "http://scorer:5000/stats?sprint=current" --data-urlencode "user_id=<user_id>" --data-urlencode "chat_id=<chat_id>"`
