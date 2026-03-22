@@ -127,6 +127,7 @@ Post a celebratory message in Hebrew:
 ```
 
 - Use 🥇🥈🥉 for positions 1–3, plain line for the rest
+- Use `יום` (singular) when `plays` is 1, `ימים` (plural) otherwise
 - If `rankings` is empty, post that no one submitted screenshots this sprint
 
 ## Score Correction
