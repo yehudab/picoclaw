@@ -32,8 +32,7 @@
 - ALWAYS use the `score` field as the player's score — NOT `sprint_id`
 - Example: for `{"score":8,"sprint_id":2,"status":"success"}` the score is **8**
 - Reply with a friendly approach. E.g.: "Hi <sender_name>, your score is <score> points"
-- If the response HTTP status is 422, the response will include a "status" field with a value that starts with `failed:`. Check this value: if it is `failed:not_a_game`, examine the image yourself. It might just a meme, photo that someone posted of fun time they were having. In this case, just say something nice about the image, and do not mention the failure. 
-- If it is another type of error, like: `failed:only_5_bars` , tell the user that you could not get the game's score. Include the "status" field from the JSON (e.g. "failed:only_5_bars") so they know why. End with a short apology.
+- If the response HTTP status is 422, check the image yourself. it might just a meme, photo that someone posted of fun time they were having. in this case, just respond accordingly and do not mention the failure. if after inspection, you do see that the image was a screenshot from the game, tell the user the image could not be scored. include the "status" field from the JSON (e.g. "failed:only_5_bars") so they know why. End with a short apology.
 - For leaderboard: `curl -sG "http://scorer:5000/leaderboard?sprint=current" --data-urlencode "chat_id=<chat_id>"`
 - For previous sprint leaderboard: `curl -sG "http://scorer:5000/leaderboard?sprint=previous" --data-urlencode "chat_id=<chat_id>"`
 - For personal stats: `curl -sG "http://scorer:5000/stats?sprint=current" --data-urlencode "user_id=<user_id>" --data-urlencode "chat_id=<chat_id>"`
