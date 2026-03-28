@@ -28,11 +28,12 @@
 - When a message contains `"[image saved at <path> sender_id=<id> sender_name=<name> chat_id=<chat_id>]"`, score it by running: `/home/picoclaw/.picoclaw/workspace/score.sh <path> <id> "<name>" <chat_id>`
 - The `sender_id`, `sender_name`, and `chat_id` are all embedded in the message — extract each from its field, never guess or substitute values
 - ALWAYS use the full path `/home/picoclaw/.picoclaw/workspace/score.sh` — never just `score.sh`
-- The JSON response contains three fields: `score`, `sprint_id`, and `status`
+- The JSON response contains four fields: `score`, `status`, `user_name`, and `sprint_id`
 - ALWAYS use the `score` field as the player's score — NOT `sprint_id`
-- Example: for `{"score":8,"sprint_id":2,"status":"success"}` the score is **8**
-- Reply with a friendly approach. E.g.: "Hi <sender_name>, your score is <score> points"
-- If the response HTTP status is 422, tell the user the image could not be scored. include the "status" field from the JSON (e.g. "failed:only_5_bars") so they know why. End with a short apology.
+- ALWAYS address the player using the `user_name` field from the JSON response — never use `sender_name` from the message or guess a name from the Group Members list
+- Example: for `{"score":8,"status":"success","user_name":"Yehuda","sprint_id":2}` the score is 8 and the player is Yehuda
+- Reply with a friendly approach. E.g.: "Hi <user_name>, your score is <score> points"
+- If the response HTTP status is 422, tell the user the image could not be scored. include the "status" field from the JSON (e.g. "failed:only_5_bars") so they know why. Address them by `user_name` from the JSON. End with a short apology.
 - For leaderboard: `curl -sG "http://scorer:5000/leaderboard?sprint=current" --data-urlencode "chat_id=<chat_id>"`
 - For previous sprint leaderboard: `curl -sG "http://scorer:5000/leaderboard?sprint=previous" --data-urlencode "chat_id=<chat_id>"`
 - For personal stats: `curl -sG "http://scorer:5000/stats?sprint=current" --data-urlencode "user_id=<user_id>" --data-urlencode "chat_id=<chat_id>"`
