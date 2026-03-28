@@ -111,7 +111,9 @@ Each time the cron fires:
    - `true` → post the sprint summary to the group (see format below), leave the cron running
 
 ### Sprint summary format
-The JSON contains: `sprint_id` (int), `start` (date), `end` (date), `rankings` (list of `{user_name, plays, total_score}`).
+The JSON contains: `sprint_id` (int), `start` (date), `end` (date), `rankings` (list of `{rank, user_name, plays, total_score}`).
+
+Each entry has a `rank` field: an integer (1, 2, 3, …) or `"-"` meaning tied with the entry above.
 
 Post a celebratory message in Hebrew:
 
@@ -120,6 +122,7 @@ Post a celebratory message in Hebrew:
 
 🥇 <name> — <total_score> נקודות (<plays> ימים)
 🥈 <name> — <total_score> נקודות (<plays> ימים)
+🥈 <name> — <total_score> נקודות (<plays> ימים)
 🥉 <name> — <total_score> נקודות (<plays> ימים)
    <name> — <total_score> נקודות (<plays> ימים)
    ...
@@ -127,7 +130,8 @@ Post a celebratory message in Hebrew:
 כל הכבוד לכולם! 🎉
 ```
 
-- Use 🥇🥈🥉 for positions 1–3, plain line for the rest
+- Use the `rank` field to pick the medal: 1 → 🥇, 2 → 🥈, 3 → 🥉, 4+ → plain line
+- When `rank` is `"-"`, use the same medal as the entry above
 - Use `יום` (singular) when `plays` is 1, `ימים` (plural) otherwise
 - If `rankings` is empty, post that no one submitted screenshots this sprint
 
