@@ -20,6 +20,7 @@ import (
 
 	"github.com/mdp/qrterminal/v3"
 	"go.mau.fi/whatsmeow"
+	"go.mau.fi/whatsmeow/proto/waCommon"
 	"go.mau.fi/whatsmeow/proto/waE2E"
 	"go.mau.fi/whatsmeow/store/sqlstore"
 	"go.mau.fi/whatsmeow/types"
@@ -550,6 +551,57 @@ func (c *WhatsAppNativeChannel) Send(ctx context.Context, msg bus.OutboundMessag
 		return nil, fmt.Errorf("whatsapp send: %w", channels.ErrTemporary)
 	}
 	return nil, nil
+}
+
+// ReactToMessage implements channels.ReactionCapable.
+// Sends a 👀 reaction to the given message.
+func (c *WhatsAppNativeChannel) ReactToMessage(ctx context.Context, chatID, messageID string) (func(), error) {
+	c.mu.Lock()
+	client := c.client
+	c.mu.Unlock()
+
+	if client == nil || !client.IsConnected() {
+		return func() {}, fmt.Errorf("whatsapp not connected")
+	}
+
+	to, err := parseJID(chatID)
+	if err != nil {
+		return func() {}, fmt.Errorf("invalid chat id: %w", err)
+	}
+
+	reactionMsg := &waE2E.Message{
+		ReactionMessage: &waE2E.ReactionMessage{
+			Key: &waCommon.MessageKey{
+				RemoteJID: proto.String(chatID),
+				FromMe:    proto.Bool(false),
+				ID:        proto.String(messageID),
+			},
+			Text:              proto.String("👀"),
+			SenderTimestampMS: proto.Int64(time.Now().UnixMilli()),
+		},
+	}
+
+	if _, err := client.SendMessage(ctx, to, reactionMsg); err != nil {
+		return func() {}, fmt.Errorf("whatsapp reaction: %w", err)
+	}
+
+	undo := func() {
+		undoMsg := &waE2E.Message{
+			ReactionMessage: &waE2E.ReactionMessage{
+				Key: &waCommon.MessageKey{
+					RemoteJID: proto.String(chatID),
+					FromMe:    proto.Bool(false),
+					ID:        proto.String(messageID),
+				},
+				Text:              proto.String(""),
+				SenderTimestampMS: proto.Int64(time.Now().UnixMilli()),
+			},
+		}
+		//nolint:errcheck
+		client.SendMessage(ctx, to, undoMsg)
+	}
+
+	return undo, nil
 }
 
 // parseJID converts a chat ID (phone number or JID string) to types.JID.
