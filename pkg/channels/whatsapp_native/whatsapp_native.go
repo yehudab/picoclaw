@@ -35,6 +35,7 @@ import (
 	"github.com/sipeed/picoclaw/pkg/identity"
 	"github.com/sipeed/picoclaw/pkg/logger"
         "github.com/sipeed/picoclaw/pkg/media"
+	"github.com/sipeed/picoclaw/pkg/tools"
 	"github.com/sipeed/picoclaw/pkg/utils"
 )
 
@@ -569,13 +570,22 @@ func (c *WhatsAppNativeChannel) ReactToMessage(ctx context.Context, chatID, mess
 		return func() {}, fmt.Errorf("invalid chat id: %w", err)
 	}
 
+	msgKey := &waCommon.MessageKey{
+		RemoteJID: proto.String(chatID),
+		FromMe:    proto.Bool(false),
+		ID:        proto.String(messageID),
+	}
+	// Group messages require the sender's JID as Participant so the server
+	// can identify which message to attach the reaction to.
+	if strings.HasSuffix(chatID, "@g.us") {
+		if senderID := tools.ToolSenderID(ctx); senderID != "" {
+			msgKey.Participant = proto.String(senderID)
+		}
+	}
+
 	reactionMsg := &waE2E.Message{
 		ReactionMessage: &waE2E.ReactionMessage{
-			Key: &waCommon.MessageKey{
-				RemoteJID: proto.String(chatID),
-				FromMe:    proto.Bool(false),
-				ID:        proto.String(messageID),
-			},
+			Key:               msgKey,
 			Text:              proto.String("👀"),
 			SenderTimestampMS: proto.Int64(time.Now().UnixMilli()),
 		},
@@ -588,11 +598,7 @@ func (c *WhatsAppNativeChannel) ReactToMessage(ctx context.Context, chatID, mess
 	undo := func() {
 		undoMsg := &waE2E.Message{
 			ReactionMessage: &waE2E.ReactionMessage{
-				Key: &waCommon.MessageKey{
-					RemoteJID: proto.String(chatID),
-					FromMe:    proto.Bool(false),
-					ID:        proto.String(messageID),
-				},
+				Key:               msgKey,
 				Text:              proto.String(""),
 				SenderTimestampMS: proto.Int64(time.Now().UnixMilli()),
 			},

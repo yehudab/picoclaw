@@ -540,6 +540,7 @@ func TestToolContext_Updates(t *testing.T) {
 		"chat-42",
 		"msg-123",
 		"msg-100",
+		"",
 	)
 	if got := tools.ToolMessageID(inboundCtx); got != "msg-123" {
 		t.Errorf("expected messageID 'msg-123', got %q", got)

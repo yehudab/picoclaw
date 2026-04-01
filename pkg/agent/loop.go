@@ -2493,6 +2493,7 @@ turnLoop:
 				ts.chatID,
 				ts.opts.MessageID,
 				ts.opts.ReplyToMessageID,
+				ts.opts.SenderID,
 			)
 			toolResult := ts.agent.Tools.ExecuteWithContext(
 				execCtx,

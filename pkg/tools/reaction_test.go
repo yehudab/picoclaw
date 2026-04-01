@@ -17,7 +17,7 @@ func TestReactionTool_Execute_UsesContextMessageIDByDefault(t *testing.T) {
 		return nil
 	})
 
-	ctx := WithToolInboundContext(context.Background(), "telegram", "chat-1", "msg-100", "")
+	ctx := WithToolInboundContext(context.Background(), "telegram", "chat-1", "msg-100", "", "")
 	result := tool.Execute(ctx, map[string]any{})
 	if result.IsError {
 		t.Fatalf("expected success, got error: %s", result.ForLLM)
@@ -36,7 +36,7 @@ func TestReactionTool_Execute_AllowsExplicitMessageIDOverride(t *testing.T) {
 		return nil
 	})
 
-	ctx := WithToolInboundContext(context.Background(), "telegram", "chat-1", "msg-context", "")
+	ctx := WithToolInboundContext(context.Background(), "telegram", "chat-1", "msg-context", "", "")
 	result := tool.Execute(ctx, map[string]any{"message_id": "msg-explicit"})
 	if result.IsError {
 		t.Fatalf("expected success, got error: %s", result.ForLLM)
@@ -66,7 +66,7 @@ func TestReactionTool_Execute_CallbackError(t *testing.T) {
 		return errors.New("unsupported")
 	})
 
-	ctx := WithToolInboundContext(context.Background(), "telegram", "chat-1", "msg-100", "")
+	ctx := WithToolInboundContext(context.Background(), "telegram", "chat-1", "msg-100", "", "")
 	result := tool.Execute(ctx, map[string]any{})
 	if !result.IsError {
 		t.Fatal("expected error")
