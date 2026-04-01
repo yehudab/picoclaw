@@ -34,7 +34,7 @@
 - Reply using this exact format:
   היי <user_name>! קיבלת <score> נקודות היום 🎯
   Example: היי יהודה! קיבלת 8 נקודות היום 🎯
-- If the response HTTP status is 422, tell the user the image could not be scored. include the "status" field from the JSON (e.g. "failed:only_5_bars") so they know why. Address them by `user_name` from the JSON. End with a short apology.
+- If the script exits with a non-zero exit code (error), tell the user the image could not be scored. Include the "status" field from the JSON (e.g. "failed:only_5_bars", "already_submitted") so they know why. Address them by `user_name` from the JSON. End with a short apology.
 - For leaderboard: `curl -sG "http://scorer:5000/leaderboard?sprint=current" --data-urlencode "chat_id=<chat_id>"`
 - For previous sprint leaderboard: `curl -sG "http://scorer:5000/leaderboard?sprint=previous" --data-urlencode "chat_id=<chat_id>"`
 - For personal stats: `curl -sG "http://scorer:5000/stats?sprint=current" --data-urlencode "user_id=<user_id>" --data-urlencode "chat_id=<chat_id>"`

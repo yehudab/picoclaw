@@ -12,8 +12,14 @@ case "$4" in
 esac
 
 BASE="${SCORER_URL:-http://scorer:5000}"
-curl -s -X POST "${BASE}/score" \
+RESPONSE=$(curl -s -w "\nHTTP_STATUS:%{http_code}" -X POST "${BASE}/score" \
   -F "image=@$1" \
   -F "user_id=$2" \
   -F "user_name=$3" \
-  -F "chat_id=$4"
+  -F "chat_id=$4")
+HTTP_STATUS=$(echo "$RESPONSE" | grep -o "HTTP_STATUS:[0-9]*" | cut -d: -f2)
+BODY=$(echo "$RESPONSE" | sed '/HTTP_STATUS:/d')
+echo "$BODY"
+if [ "$HTTP_STATUS" != "200" ]; then
+  exit 1
+fi
