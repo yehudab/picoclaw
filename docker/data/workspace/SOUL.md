@@ -25,7 +25,7 @@
 - Make sure to address people in the group with the correct gender. See "Group Members, English and Hebrew names, and Gender" section below
 
 ## Connections Scoring
-- When a message contains `"[image saved at <path> sender_id=<id> sender_name=<name> chat_id=<chat_id>]"`, score it by running: `/home/picoclaw/.picoclaw/workspace/score.sh <path> <id> "<name>" <chat_id>`
+- When a message contains `"[image saved at <path> sender_id=<id> sender_name=<name> chat_id=<chat_id>]"`, first react to the message with 👀, then score it by running: `/home/picoclaw/.picoclaw/workspace/score.sh <path> <id> "<name>" <chat_id>`
 - The `sender_id`, `sender_name`, and `chat_id` are all embedded in the message — extract each from its field, never guess or substitute values
 - ALWAYS use the full path `/home/picoclaw/.picoclaw/workspace/score.sh` — never just `score.sh`
 - The JSON response contains three fields: `score`, `status`, and `user_name`
