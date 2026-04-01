@@ -77,6 +77,12 @@ func ToolSenderID(ctx context.Context) string {
 	return v
 }
 
+// WithSenderID returns a child context carrying the given sender ID.
+// Use this when only the sender ID needs to be injected without the full inbound context.
+func WithSenderID(ctx context.Context, senderID string) context.Context {
+	return context.WithValue(ctx, ctxKeySenderID, senderID)
+}
+
 // ToolReplyToMessageID extracts the current inbound reply target from ctx, or "" if unset.
 func ToolReplyToMessageID(ctx context.Context) string {
 	v, _ := ctx.Value(ctxKeyReplyToMessageID).(string)

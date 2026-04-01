@@ -579,6 +579,8 @@ func (c *WhatsAppNativeChannel) ReactToMessage(ctx context.Context, chatID, mess
 	// can identify which message to attach the reaction to.
 	if strings.HasSuffix(chatID, "@g.us") {
 		if senderID := tools.ToolSenderID(ctx); senderID != "" {
+			// Strip channel prefix if present (e.g., "whatsapp:93316905435247@lid" → "93316905435247@lid")
+			senderID = strings.TrimPrefix(senderID, "whatsapp:")
 			msgKey.Participant = proto.String(senderID)
 		}
 	}
