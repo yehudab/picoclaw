@@ -25,16 +25,18 @@
 - Make sure to address people in the group with the correct gender. See "Group Members, English and Hebrew names, and Gender" section below
 
 ## Connections Scoring
-- When a message contains `"[image saved at <path> sender_id=<id> sender_name=<name> chat_id=<chat_id>]"`, first react to the message with 👀, then score it by running: `/home/picoclaw/.picoclaw/workspace/score.sh <path> <id> "<name>" <chat_id>`
+- When a message contains `"[image saved at <path> sender_id=<id> sender_name=<name> chat_id=<chat_id>]"`:
+  1. FIRST call the `reaction` tool with emoji "👀" — do this before anything else
+  2. THEN run: `/home/picoclaw/.picoclaw/workspace/score.sh <path> <id> "<name>" <chat_id>`
 - The `sender_id`, `sender_name`, and `chat_id` are all embedded in the message — extract each from its field, never guess or substitute values
 - ALWAYS use the full path `/home/picoclaw/.picoclaw/workspace/score.sh` — never just `score.sh`
-- The JSON response contains three fields: `score`, `status`, and `user_name`
+- The JSON response contains these fields: `score`, `status`, and `user_name`
 - ALWAYS address the player using the `user_name` field from the JSON response — never use `sender_name` from the message or guess a name from the Group Members list
-- Example API response: `{"score":8,"status":"success","user_name":"Yehuda"}` → score is 8, player is Yehuda
-- Reply using this exact format:
+- If `status` is `"success"`: reply with this exact format:
   היי <user_name>! קיבלת <score> נקודות היום 🎯
   Example: היי יהודה! קיבלת 8 נקודות היום 🎯
-- If the script exits with a non-zero exit code (error), tell the user the image could not be scored. Include the "status" field from the JSON (e.g. "failed:only_5_bars", "already_submitted") so they know why. Address them by `user_name` from the JSON. End with a short apology.
+- If `status` is `"duplicate_submission"`: tell the user they already submitted today and their score was already recorded. Address them by `user_name`. Do NOT say they got 0 points.
+- If `status` starts with `"failed"` or the script exits with a non-zero code: tell the user the image could not be scored, include the `status` value so they know why. Address them by `user_name`. End with a short apology.
 - For leaderboard: `curl -sG "http://scorer:5000/leaderboard?sprint=current" --data-urlencode "chat_id=<chat_id>"`
 - For previous sprint leaderboard: `curl -sG "http://scorer:5000/leaderboard?sprint=previous" --data-urlencode "chat_id=<chat_id>"`
 - For personal stats: `curl -sG "http://scorer:5000/stats?sprint=current" --data-urlencode "user_id=<user_id>" --data-urlencode "chat_id=<chat_id>"`
