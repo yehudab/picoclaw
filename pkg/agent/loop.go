@@ -253,7 +253,12 @@ func registerSharedTools(
 				}
 				ch, ok := al.channelManager.GetChannel(channel)
 				if !ok {
-					return fmt.Errorf("channel %s not found", channel)
+					// Fall back to the context channel (LLM may have guessed wrong channel name)
+					channel = tools.ToolChannel(ctx)
+					ch, ok = al.channelManager.GetChannel(channel)
+					if !ok {
+						return fmt.Errorf("channel %s not found", channel)
+					}
 				}
 				rc, ok := ch.(channels.ReactionCapable)
 				if !ok {

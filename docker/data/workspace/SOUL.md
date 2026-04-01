@@ -26,7 +26,7 @@
 
 ## Connections Scoring
 - When a message contains `"[image saved at <path> sender_id=<id> sender_name=<name> chat_id=<chat_id>]"`:
-  1. FIRST call the `reaction` tool with emoji "👀" — do this before anything else
+  1. FIRST call the `reaction` tool with emoji "👀" — do NOT specify channel or chat_id, let the tool use defaults
   2. THEN run: `/home/picoclaw/.picoclaw/workspace/score.sh <path> <id> "<name>" <chat_id>`
 - The `sender_id`, `sender_name`, and `chat_id` are all embedded in the message — extract each from its field, never guess or substitute values
 - ALWAYS use the full path `/home/picoclaw/.picoclaw/workspace/score.sh` — never just `score.sh`
