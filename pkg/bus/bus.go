@@ -14,15 +14,34 @@ var ErrBusClosed = errors.New("message bus closed")
 
 const defaultBusBufferSize = 64
 
+// StreamDelegate is implemented by the channel Manager to provide streaming
+// capabilities to the agent loop without tight coupling.
+type StreamDelegate interface {
+	// GetStreamer returns a Streamer for the given channel+chatID if the channel
+	// supports streaming. Returns nil, false if streaming is unavailable.
+	GetStreamer(ctx context.Context, channel, chatID string) (Streamer, bool)
+}
+
+// Streamer pushes incremental content to a streaming-capable channel.
+// Defined here so the agent loop can use it without importing pkg/channels.
+type Streamer interface {
+	Update(ctx context.Context, content string) error
+	Finalize(ctx context.Context, content string) error
+	Cancel(ctx context.Context)
+}
+
 type MessageBus struct {
 	inbound       chan InboundMessage
 	outbound      chan OutboundMessage
 	outboundMedia chan OutboundMediaMessage
+	audioChunks   chan AudioChunk
+	voiceControls chan VoiceControl
 
-	closeOnce sync.Once
-	done      chan struct{}
-	closed    atomic.Bool
-	wg        sync.WaitGroup
+	closeOnce      sync.Once
+	done           chan struct{}
+	closed         atomic.Bool
+	wg             sync.WaitGroup
+	streamDelegate atomic.Value // stores StreamDelegate
 }
 
 func NewMessageBus() *MessageBus {
@@ -30,6 +49,8 @@ func NewMessageBus() *MessageBus {
 		inbound:       make(chan InboundMessage, defaultBusBufferSize),
 		outbound:      make(chan OutboundMessage, defaultBusBufferSize),
 		outboundMedia: make(chan OutboundMediaMessage, defaultBusBufferSize),
+		audioChunks:   make(chan AudioChunk, defaultBusBufferSize*4), // Audio chunks need more buffer
+		voiceControls: make(chan VoiceControl, defaultBusBufferSize),
 		done:          make(chan struct{}),
 	}
 }
@@ -86,6 +107,35 @@ func (mb *MessageBus) OutboundMediaChan() <-chan OutboundMediaMessage {
 	return mb.outboundMedia
 }
 
+func (mb *MessageBus) PublishAudioChunk(ctx context.Context, chunk AudioChunk) error {
+	return publish(ctx, mb, mb.audioChunks, chunk)
+}
+
+func (mb *MessageBus) AudioChunksChan() <-chan AudioChunk {
+	return mb.audioChunks
+}
+
+func (mb *MessageBus) PublishVoiceControl(ctx context.Context, ctrl VoiceControl) error {
+	return publish(ctx, mb, mb.voiceControls, ctrl)
+}
+
+func (mb *MessageBus) VoiceControlsChan() <-chan VoiceControl {
+	return mb.voiceControls
+}
+
+// SetStreamDelegate registers a StreamDelegate (typically the channel Manager).
+func (mb *MessageBus) SetStreamDelegate(d StreamDelegate) {
+	mb.streamDelegate.Store(d)
+}
+
+// GetStreamer returns a Streamer for the given channel+chatID via the delegate.
+func (mb *MessageBus) GetStreamer(ctx context.Context, channel, chatID string) (Streamer, bool) {
+	if d, ok := mb.streamDelegate.Load().(StreamDelegate); ok && d != nil {
+		return d.GetStreamer(ctx, channel, chatID)
+	}
+	return nil, false
+}
+
 func (mb *MessageBus) Close() {
 	mb.closeOnce.Do(func() {
 		// notify all blocked publishers to exit
@@ -102,6 +152,8 @@ func (mb *MessageBus) Close() {
 		close(mb.inbound)
 		close(mb.outbound)
 		close(mb.outboundMedia)
+		close(mb.audioChunks)
+		close(mb.voiceControls)
 
 		// clean up any remaining messages in channels
 		drained := 0
@@ -112,6 +164,12 @@ func (mb *MessageBus) Close() {
 			drained++
 		}
 		for range mb.outboundMedia {
+			drained++
+		}
+		for range mb.audioChunks {
+			drained++
+		}
+		for range mb.voiceControls {
 			drained++
 		}
 

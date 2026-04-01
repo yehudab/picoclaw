@@ -27,7 +27,7 @@ services:
       context: ..            # Points to the root directory where the Makefile is
       dockerfile: docker/Dockerfile  # Points to the Dockerfile here
     container_name: picoclaw-gateway
-    restart: on-failure
+    restart: unless-stopped
     profiles:
       - gateway
     volumes:
@@ -49,7 +49,7 @@ services:
   picoclaw-launcher:
     image: docker.io/sipeed/picoclaw:launcher
     container_name: picoclaw-launcher
-    restart: on-failure
+    restart: unless-stopped
     profiles:
       - launcher
     environment:

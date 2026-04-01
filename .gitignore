@@ -32,6 +32,9 @@ docker/data/workspace/*.jpg
 # Secrets & Config (keep templates, ignore actual secrets)
 .env
 config/config.json
+.security.yml
+onboard
+
 
 # Test
 coverage.txt
@@ -47,6 +50,7 @@ tasks/
 
 # Plans
 docs/plans/
+docs/superpowers/
 
 # Editors
 .vscode/
@@ -66,3 +70,7 @@ cmd/telegram/
 !web/backend/dist/
 web/backend/dist/*
 !web/backend/dist/.gitkeep
+
+.claude/
+
+docker/data
