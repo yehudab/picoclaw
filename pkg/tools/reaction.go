@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-type ReactionCallback func(ctx context.Context, channel, chatID, messageID string) error
+type ReactionCallback func(ctx context.Context, channel, chatID, messageID, emoji string) error
 
 type ReactionTool struct {
 	reactionCallback ReactionCallback
@@ -27,6 +27,10 @@ func (t *ReactionTool) Parameters() map[string]any {
 	return map[string]any{
 		"type": "object",
 		"properties": map[string]any{
+			"emoji": map[string]any{
+				"type":        "string",
+				"description": "Emoji to react with (e.g. 👀, 🌸, ❤️). Defaults to 👀 if omitted.",
+			},
 			"message_id": map[string]any{
 				"type":        "string",
 				"description": "Optional: target message ID; defaults to the current inbound message",
@@ -51,6 +55,7 @@ func (t *ReactionTool) Execute(ctx context.Context, args map[string]any) *ToolRe
 	channel, _ := args["channel"].(string)
 	chatID, _ := args["chat_id"].(string)
 	messageID, _ := args["message_id"].(string)
+	emoji, _ := args["emoji"].(string)
 
 	if channel == "" {
 		channel = ToolChannel(ctx)
@@ -60,6 +65,9 @@ func (t *ReactionTool) Execute(ctx context.Context, args map[string]any) *ToolRe
 	}
 	if messageID == "" {
 		messageID = ToolMessageID(ctx)
+	}
+	if emoji == "" {
+		emoji = "👀"
 	}
 
 	if channel == "" || chatID == "" {
@@ -72,7 +80,7 @@ func (t *ReactionTool) Execute(ctx context.Context, args map[string]any) *ToolRe
 		return &ToolResult{ForLLM: "Reaction not configured", IsError: true}
 	}
 
-	if err := t.reactionCallback(ctx, channel, chatID, messageID); err != nil {
+	if err := t.reactionCallback(ctx, channel, chatID, messageID, emoji); err != nil {
 		return &ToolResult{
 			ForLLM:  fmt.Sprintf("adding reaction: %v", err),
 			IsError: true,

@@ -244,7 +244,7 @@ func (c *FeishuChannel) SendPlaceholder(ctx context.Context, chatID string) (str
 
 // ReactToMessage implements channels.ReactionCapable.
 // Adds a reaction (randomly chosen from config) and returns an undo function to remove it.
-func (c *FeishuChannel) ReactToMessage(ctx context.Context, chatID, messageID string) (func(), error) {
+func (c *FeishuChannel) ReactToMessage(ctx context.Context, chatID, messageID, _ string) (func(), error) {
 	// Get emoji list from config (Feishu emoji_type keys, e.g. Pin, THUMBSUP).
 	// Ignore empty entries so a list like ["", "Pin"] does not randomly pick "" (API 231001).
 	var candidates []string

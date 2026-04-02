@@ -247,7 +247,7 @@ func registerSharedTools(
 		}
 		if cfg.Tools.IsToolEnabled("reaction") {
 			reactionTool := tools.NewReactionTool()
-			reactionTool.SetReactionCallback(func(ctx context.Context, channel, chatID, messageID string) error {
+			reactionTool.SetReactionCallback(func(ctx context.Context, channel, chatID, messageID, emoji string) error {
 				if al.channelManager == nil {
 					return fmt.Errorf("channel manager not configured")
 				}
@@ -264,7 +264,7 @@ func registerSharedTools(
 				if !ok {
 					return fmt.Errorf("channel %s does not support reactions", channel)
 				}
-				_, err := rc.ReactToMessage(ctx, chatID, messageID)
+				_, err := rc.ReactToMessage(ctx, chatID, messageID, emoji)
 				return err
 			})
 			agent.Tools.Register(reactionTool)

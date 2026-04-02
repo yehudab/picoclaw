@@ -28,8 +28,9 @@ type MessageDeleter interface {
 // ReactionCapable — channels that can add a reaction (e.g. 👀) to an inbound message.
 // ReactToMessage adds a reaction and returns an undo function to remove it.
 // The undo function MUST be idempotent and safe to call multiple times.
+// emoji is the Unicode emoji to use; pass "" to use the channel's default.
 type ReactionCapable interface {
-	ReactToMessage(ctx context.Context, chatID, messageID string) (undo func(), err error)
+	ReactToMessage(ctx context.Context, chatID, messageID, emoji string) (undo func(), err error)
 }
 
 // PlaceholderCapable — channels that can send a placeholder message

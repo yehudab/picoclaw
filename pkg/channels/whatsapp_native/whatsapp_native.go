@@ -556,7 +556,10 @@ func (c *WhatsAppNativeChannel) Send(ctx context.Context, msg bus.OutboundMessag
 
 // ReactToMessage implements channels.ReactionCapable.
 // Sends a 👀 reaction to the given message.
-func (c *WhatsAppNativeChannel) ReactToMessage(ctx context.Context, chatID, messageID string) (func(), error) {
+func (c *WhatsAppNativeChannel) ReactToMessage(ctx context.Context, chatID, messageID, emoji string) (func(), error) {
+	if emoji == "" {
+		emoji = "👀"
+	}
 	c.mu.Lock()
 	client := c.client
 	c.mu.Unlock()
@@ -588,7 +591,7 @@ func (c *WhatsAppNativeChannel) ReactToMessage(ctx context.Context, chatID, mess
 	reactionMsg := &waE2E.Message{
 		ReactionMessage: &waE2E.ReactionMessage{
 			Key:               msgKey,
-			Text:              proto.String("👀"),
+			Text:              proto.String(emoji),
 			SenderTimestampMS: proto.Int64(time.Now().UnixMilli()),
 		},
 	}
