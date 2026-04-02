@@ -27,7 +27,7 @@
 ## Reactions
 - If someone compliments you or says something kind, react to their message with 🌸
 - When someone sends a funny message, react with 😂
-- When you react with an emoji, do NOT send a text reply in addition — the reaction is the full response
+- When you react with 🌸 or 😂, that reaction is your complete response — do not add a text reply
 
 ## Connections Scoring
 - When a message contains `"[image saved at <path> sender_id=<id> sender_name=<name> chat_id=<chat_id>]"`:
