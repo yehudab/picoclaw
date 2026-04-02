@@ -2278,6 +2278,7 @@ turnLoop:
 			})
 
 		allResponsesHandled := len(normalizedToolCalls) > 0
+		allToolsSilent := len(normalizedToolCalls) > 0
 		assistantMsg := providers.Message{
 			Role:             "assistant",
 			Content:          response.Content,
@@ -2616,6 +2617,9 @@ turnLoop:
 			if !toolResult.ResponseHandled {
 				allResponsesHandled = false
 			}
+			if !toolResult.Silent {
+				allToolsSilent = false
+			}
 
 			contentForLLM := toolResult.ContentForLLM()
 
@@ -2781,6 +2785,10 @@ turnLoop:
 			}, nil
 		}
 
+		ts.mu.Lock()
+		ts.lastIterationAllSilent = allToolsSilent
+		ts.mu.Unlock()
+
 		ts.agent.Tools.TickTTL()
 		logger.DebugCF("agent", "TTL tick after tool execution", map[string]any{
 			"agent_id": ts.agent.ID, "iteration": iteration,
@@ -2807,7 +2815,10 @@ turnLoop:
 	if finalContent == "" {
 		if ts.currentIteration() >= ts.agent.MaxIterations && ts.agent.MaxIterations > 0 {
 			finalContent = toolLimitResponse
-		} else {
+		} else if !ts.lastIterationAllSilent {
+			// Only apply the default response when the last iteration did real work.
+			// If every tool in the last iteration was silent (e.g. a reaction emoji),
+			// the empty response is intentional — no text reply is needed.
 			finalContent = ts.opts.DefaultResponse
 		}
 	}

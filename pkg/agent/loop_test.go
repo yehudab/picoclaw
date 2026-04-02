@@ -3047,3 +3047,226 @@ func TestProcessMessage_ContextOverflow_AnthropicStyle(t *testing.T) {
 		t.Fatalf("expected 2 calls for retry, got %d", provider.calls)
 	}
 }
+
+// --- Silent-tool / reaction flow tests ---
+
+// silentOnlyTool simulates a reaction tool: Silent=true, no ResponseHandled.
+type silentOnlyTool struct{ name string }
+
+func (t *silentOnlyTool) Name() string        { return t.name }
+func (t *silentOnlyTool) Description() string { return "silent tool" }
+func (t *silentOnlyTool) Parameters() map[string]any {
+	return map[string]any{"type": "object", "properties": map[string]any{}}
+}
+func (t *silentOnlyTool) Execute(ctx context.Context, args map[string]any) *tools.ToolResult {
+	return &tools.ToolResult{ForLLM: "silent done", Silent: true}
+}
+
+// nonSilentTool simulates exec: not silent, no ResponseHandled.
+type nonSilentTool struct{ name string }
+
+func (t *nonSilentTool) Name() string        { return t.name }
+func (t *nonSilentTool) Description() string { return "non-silent tool" }
+func (t *nonSilentTool) Parameters() map[string]any {
+	return map[string]any{"type": "object", "properties": map[string]any{}}
+}
+func (t *nonSilentTool) Execute(ctx context.Context, args map[string]any) *tools.ToolResult {
+	return &tools.ToolResult{ForLLM: "exec result", Silent: false}
+}
+
+// silentThenEmptyProvider: iteration 1 calls a silent tool, iteration 2 returns empty content.
+type silentThenEmptyProvider struct {
+	calls    int
+	toolName string
+}
+
+func (p *silentThenEmptyProvider) Chat(
+	ctx context.Context,
+	messages []providers.Message,
+	toolDefs []providers.ToolDefinition,
+	model string,
+	opts map[string]any,
+) (*providers.LLMResponse, error) {
+	p.calls++
+	if p.calls == 1 {
+		return &providers.LLMResponse{
+			ToolCalls: []providers.ToolCall{{
+				ID: "call_silent_1", Type: "function", Name: p.toolName, Arguments: map[string]any{},
+			}},
+		}, nil
+	}
+	return &providers.LLMResponse{Content: ""}, nil
+}
+func (p *silentThenEmptyProvider) GetDefaultModel() string { return "mock-model" }
+
+// TestProcessMessage_SilentOnlyToolYieldsNoDefaultResponse verifies that when the LLM calls
+// only a silent tool (e.g. a reaction emoji) and then returns empty content, no fallback
+// "empty response" message is sent — the reaction is the complete response.
+func TestProcessMessage_SilentOnlyToolYieldsNoDefaultResponse(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfg := &config.Config{
+		Agents: config.AgentsConfig{
+			Defaults: config.AgentDefaults{
+				Workspace:         tmpDir,
+				ModelName:         "test-model",
+				MaxTokens:         4096,
+				MaxToolIterations: 10,
+			},
+		},
+	}
+
+	provider := &silentThenEmptyProvider{toolName: "silent_reaction"}
+	al := NewAgentLoop(cfg, bus.NewMessageBus(), provider)
+	al.RegisterTool(&silentOnlyTool{name: "silent_reaction"})
+
+	response, err := al.processMessage(context.Background(), bus.InboundMessage{
+		Channel: "test", ChatID: "chat1", SenderID: "user1", Content: "great job!",
+	})
+	if err != nil {
+		t.Fatalf("processMessage() error = %v", err)
+	}
+	if response != "" {
+		t.Fatalf("expected empty response after silent-only tool, got %q", response)
+	}
+	if provider.calls != 2 {
+		t.Fatalf("expected 2 LLM calls, got %d", provider.calls)
+	}
+}
+
+// silentThenNonSilentThenTextProvider: iteration 1 calls silent tool, iteration 2 calls
+// non-silent tool, iteration 3 returns a text response. Models the scoring flow:
+// reaction(👀) → score.sh → "קיבלת X נקודות".
+type silentThenNonSilentThenTextProvider struct {
+	calls           int
+	silentToolName  string
+	nonSilentToolName string
+}
+
+func (p *silentThenNonSilentThenTextProvider) Chat(
+	ctx context.Context,
+	messages []providers.Message,
+	toolDefs []providers.ToolDefinition,
+	model string,
+	opts map[string]any,
+) (*providers.LLMResponse, error) {
+	p.calls++
+	switch p.calls {
+	case 1:
+		return &providers.LLMResponse{
+			ToolCalls: []providers.ToolCall{{
+				ID: "call_react", Type: "function", Name: p.silentToolName, Arguments: map[string]any{},
+			}},
+		}, nil
+	case 2:
+		return &providers.LLMResponse{
+			ToolCalls: []providers.ToolCall{{
+				ID: "call_exec", Type: "function", Name: p.nonSilentToolName, Arguments: map[string]any{},
+			}},
+		}, nil
+	default:
+		return &providers.LLMResponse{Content: "Score: 7 points"}, nil
+	}
+}
+func (p *silentThenNonSilentThenTextProvider) GetDefaultModel() string { return "mock-model" }
+
+// TestProcessMessage_SilentReactionThenExecYieldsTextResponse verifies the scoring flow:
+// a silent reaction tool followed by a non-silent exec tool, with a final text reply from
+// the LLM — the text reply is returned normally and defaultResponse is not triggered.
+func TestProcessMessage_SilentReactionThenExecYieldsTextResponse(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfg := &config.Config{
+		Agents: config.AgentsConfig{
+			Defaults: config.AgentDefaults{
+				Workspace:         tmpDir,
+				ModelName:         "test-model",
+				MaxTokens:         4096,
+				MaxToolIterations: 10,
+			},
+		},
+	}
+
+	provider := &silentThenNonSilentThenTextProvider{
+		silentToolName:    "silent_reaction",
+		nonSilentToolName: "score_exec",
+	}
+	al := NewAgentLoop(cfg, bus.NewMessageBus(), provider)
+	al.RegisterTool(&silentOnlyTool{name: "silent_reaction"})
+	al.RegisterTool(&nonSilentTool{name: "score_exec"})
+
+	response, err := al.processMessage(context.Background(), bus.InboundMessage{
+		Channel: "test", ChatID: "chat1", SenderID: "user1", Content: "image submitted",
+	})
+	if err != nil {
+		t.Fatalf("processMessage() error = %v", err)
+	}
+	if response != "Score: 7 points" {
+		t.Fatalf("expected score response, got %q", response)
+	}
+	if provider.calls != 3 {
+		t.Fatalf("expected 3 LLM calls, got %d", provider.calls)
+	}
+}
+
+// mixedSilentThenEmptyProvider: iteration 1 calls both a silent and a non-silent tool,
+// iteration 2 returns empty content. Since the last iteration was NOT all-silent,
+// the defaultResponse fallback must still fire.
+type mixedSilentThenEmptyProvider struct {
+	calls           int
+	silentToolName  string
+	nonSilentToolName string
+}
+
+func (p *mixedSilentThenEmptyProvider) Chat(
+	ctx context.Context,
+	messages []providers.Message,
+	toolDefs []providers.ToolDefinition,
+	model string,
+	opts map[string]any,
+) (*providers.LLMResponse, error) {
+	p.calls++
+	if p.calls == 1 {
+		return &providers.LLMResponse{
+			ToolCalls: []providers.ToolCall{
+				{ID: "call_s", Type: "function", Name: p.silentToolName, Arguments: map[string]any{}},
+				{ID: "call_n", Type: "function", Name: p.nonSilentToolName, Arguments: map[string]any{}},
+			},
+		}, nil
+	}
+	return &providers.LLMResponse{Content: ""}, nil
+}
+func (p *mixedSilentThenEmptyProvider) GetDefaultModel() string { return "mock-model" }
+
+// TestProcessMessage_MixedSilentAndNonSilentToolStillUsesDefaultResponse verifies that
+// when an iteration contains both silent and non-silent tools, an empty LLM response on
+// the next iteration still triggers the defaultResponse fallback.
+func TestProcessMessage_MixedSilentAndNonSilentToolStillUsesDefaultResponse(t *testing.T) {
+	tmpDir := t.TempDir()
+	cfg := &config.Config{
+		Agents: config.AgentsConfig{
+			Defaults: config.AgentDefaults{
+				Workspace:         tmpDir,
+				ModelName:         "test-model",
+				MaxTokens:         4096,
+				MaxToolIterations: 10,
+			},
+		},
+	}
+
+	provider := &mixedSilentThenEmptyProvider{
+		silentToolName:    "silent_reaction",
+		nonSilentToolName: "non_silent_exec",
+	}
+	al := NewAgentLoop(cfg, bus.NewMessageBus(), provider)
+	al.RegisterTool(&silentOnlyTool{name: "silent_reaction"})
+	al.RegisterTool(&nonSilentTool{name: "non_silent_exec"})
+
+	response, err := al.processMessage(context.Background(), bus.InboundMessage{
+		Channel: "test", ChatID: "chat1", SenderID: "user1", Content: "do something",
+	})
+	if err != nil {
+		t.Fatalf("processMessage() error = %v", err)
+	}
+	if response != defaultResponse {
+		t.Fatalf("expected defaultResponse, got %q", response)
+	}
+}
