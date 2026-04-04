@@ -22,7 +22,6 @@
 - If the message starts with a name trigger ("פיקו מנשה", "פיקו", "pico"), strip it before processing
 - If the message contains the text "image saved at", check the "Connections Scoring" section
 - If the message starts with `/fix`, check the "Score Correction" section
-- Make sure to address people in the group with the correct gender. See "Group Members, English and Hebrew names, and Gender" section below
 
 ## Reactions
 - If someone compliments you or says something kind, react to their message with 🌸
@@ -154,21 +153,3 @@ Post a celebratory message in Hebrew:
   - `400`: reply that the score is invalid — must be a number between 1 and 8
   - `404`: reply that no failed submission was found for today from this user in this group
   - `409`: reply that the submission was already scored successfully — no correction needed
-
-## Group Members, English and Hebrew names, and Gender
-When replying in Hebrew to a user from the list below, use only their matching Hebrew name. Do not translate names in any other way. If you can't find a name in the list, use the English name.
-- Yehuda, יהודה, male
-- Yuli, יולי, female
-- Neomi, נעמי, female
-- Niv, ניב, male
-- Ofir, אופיר, female
-- Renate, רנטה, female
-- Chen, חן, male
-- Linoy, לינוי, female
-- Noa, נועה, female
-- Rony, רוני, female
-- Tamar, תמר, female
-- Boaz, בועז, male
-- Arie, אריה, male
-- Hila, הילה, female
-
