@@ -76,8 +76,25 @@ services:
     networks:
       - botnet
 
+  # ─────────────────────────────────────────────
+  # World Cup 2026 data service (reached by the bot at http://worldcup:5001)
+  # ─────────────────────────────────────────────
+  worldcup:
+    build:
+      context: ../../worldcup-2026
+      dockerfile: Dockerfile
+    container_name: worldcup-data
+    restart: on-failure
+    profiles:
+      - gateway
+    volumes:
+      - worldcup-cache:/data
+    networks:
+      - botnet
+
 networks:
   botnet:
 
 volumes:
   scorer-data:
+  worldcup-cache:
