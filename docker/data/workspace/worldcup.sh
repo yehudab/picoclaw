@@ -8,7 +8,9 @@
 #   worldcup.sh last <team>             a team's last result
 #   worldcup.sh schedule <team>         all of a team's fixtures
 #   worldcup.sh fixture <team1> <team2> prediction context (H2H + form + standings)
-# Team names must be the English names used by the data (e.g. Mexico, Switzerland).
+#   worldcup.sh predict <team1> <team2> alias for 'fixture'
+# Team names: English name, FIFA 3-letter code (e.g. BIH, KOR), or Hebrew. QUOTE any
+# name with a space or '&', e.g. "Bosnia & Herzegovina" — or use the code BIH instead.
 # Dates are YYYY-MM-DD, or the keywords today / yesterday / tomorrow.
 #
 # The service runs at http://worldcup:5001 on the bot's Docker network. To test
@@ -57,14 +59,14 @@ case "$1" in
     fi
     req -G "$BASE/$1" --data-urlencode "team=$2"
     ;;
-  fixture)
+  fixture|predict)
     if [ -z "$2" ] || [ -z "$3" ]; then
       echo '{"error":"two teams required: fixture <team1> <team2>"}'; exit 1
     fi
     req -G "$BASE/fixture" --data-urlencode "team1=$2" --data-urlencode "team2=$3"
     ;;
   *)
-    echo "Usage: worldcup.sh today|results|standings|next|last|schedule|fixture ..."
+    echo "Usage: worldcup.sh today|results|standings|next|last|schedule|fixture|predict ..."
     exit 1
     ;;
 esac
