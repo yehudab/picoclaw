@@ -9,6 +9,9 @@
 #   worldcup.sh schedule <team>         all of a team's fixtures
 #   worldcup.sh fixture <team1> <team2> prediction context (H2H + form + standings)
 #   worldcup.sh predict <team1> <team2> alias for 'fixture'
+#   worldcup.sh bet <team1> <team2> <score> [date]   record your predicted score (e.g. 2-1)
+#   worldcup.sh review <team1> <team2>  grade your saved bet for that pairing
+#   worldcup.sh review <date>           grade all saved bets for games on that date
 # Team names: English name, FIFA 3-letter code (e.g. BIH, KOR), or Hebrew. QUOTE any
 # name with a space or '&', e.g. "Bosnia & Herzegovina" — or use the code BIH instead.
 # Dates are YYYY-MM-DD, or the keywords today / yesterday / tomorrow.
@@ -65,8 +68,29 @@ case "$1" in
     fi
     req -G "$BASE/fixture" --data-urlencode "team1=$2" --data-urlencode "team2=$3"
     ;;
+  bet)
+    if [ -z "$2" ] || [ -z "$3" ] || [ -z "$4" ]; then
+      echo '{"error":"usage: bet <team1> <team2> <score e.g. 2-1> [date]"}'; exit 1
+    fi
+    if [ -n "$5" ]; then
+      req -G "$BASE/bets/place" --data-urlencode "team1=$2" --data-urlencode "team2=$3" \
+        --data-urlencode "pred=$4" --data-urlencode "date=$5"
+    else
+      req -G "$BASE/bets/place" --data-urlencode "team1=$2" --data-urlencode "team2=$3" \
+        --data-urlencode "pred=$4"
+    fi
+    ;;
+  review)
+    if [ -n "$3" ]; then
+      req -G "$BASE/bets/review" --data-urlencode "team1=$2" --data-urlencode "team2=$3"
+    elif [ -n "$2" ]; then
+      req -G "$BASE/bets/review" --data-urlencode "date=$2"
+    else
+      echo '{"error":"usage: review <team1> <team2>  |  review <date>"}'; exit 1
+    fi
+    ;;
   *)
-    echo "Usage: worldcup.sh today|results|standings|next|last|schedule|fixture|predict ..."
+    echo "Usage: worldcup.sh today|results|standings|next|last|schedule|fixture|predict|bet|review ..."
     exit 1
     ;;
 esac

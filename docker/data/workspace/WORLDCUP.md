@@ -32,6 +32,9 @@ schedule / scores / results / group standings, or asks who will win or what a sc
   - `worldcup.sh last <Team>` — a team's last result
   - `worldcup.sh schedule <Team>` — all of a team's fixtures
   - `worldcup.sh fixture <Team1> <Team2>` — context for predicting an upcoming match
+  - `worldcup.sh bet <Team1> <Team2> <score> [date]` — save your predicted score, e.g. `bet BRA MAR 2-1`
+  - `worldcup.sh review <Team1> <Team2>` — grade your saved bet on that pairing against the real result
+  - `worldcup.sh review <date>` — grade all your saved bets for games on that date
 - These are the **ONLY** commands, and they take **positional arguments only — there are NO `--flags`**
   (no `--query`, no `--team`, etc.). Inventing a flag just prints the Usage line and exits non-zero.
   For a past match between two specific teams, use the head-to-head recipe below — don't make up a flag.
@@ -64,17 +67,17 @@ Two separate rules — one for the *day you query*, one for the *time you show t
   one for "tomorrow"), then pass that explicit date, e.g. `worldcup.sh today 2026-06-12`. Israel is 7
   hours ahead of Eastern, so "today" in Israel can land on a different match-day — this is the thing
   people get confused about, so always anchor the day to Eastern via `nytime.sh`.
-- **What time do you SHOW the user? → Israel time.** Match times in the data are stadium-local. Each match
-  also has a `time_utc` field (ISO, e.g. `2026-06-13T19:00:00+00:00`). **Always convert `time_utc` to
-  Israel time** when telling users when a game is — get the current Israel time with
-  `/home/picoclaw/.picoclaw/workspace/time.sh` and do the offset (Israel is UTC+3 — every World Cup is a
-  summer tournament, so it's always daylight-saving time). Never state the raw UTC or stadium time as if
-  it were Israel time.
+- **What time do you SHOW the user? → use the `time_israel` field. DO NOT do timezone math yourself.**
+  Every match already includes `time_israel` (kickoff "HH:MM" in Israel time) and `date_israel`
+  ("DD/MM/YYYY" in Israel time) — read those and quote them directly. NEVER report `time_local` or the
+  raw `time_utc` as if it were Israel time (e.g. a `time_utc` of `...T17:00:00+00:00` is **20:00**
+  Israel — the service already computed that for you in `time_israel`, so just use it).
 
 ## Match JSON fields
-Each match has: `team1`, `team2`, `group`, `round`, `date`, `time_local`, `time_utc`, `ground`,
-`status` (`scheduled` or `finished`), `score` (`{ft:[a,b], ht:[...], et, p}` when finished), and
-`winner` (team name, `"draw"`, or null).
+Each match has: `team1`, `team2`, `group`, `round`, `date`, `time_local`, `time_utc`,
+**`time_israel`** (kickoff "HH:MM" already in Israel time), **`date_israel`** ("DD/MM/YYYY" in Israel
+time), `ground`, `status` (`scheduled` or `finished`), `score` (`{ft:[a,b], ht:[...], et, p}` when
+finished), and `winner` (team name, `"draw"`, or null).
 
 ## Groups & stage (IMPORTANT)
 - **Always name the group, in Hebrew, when describing a match.** The `group` field is `"Group A"`,
@@ -100,6 +103,8 @@ Each match has: `team1`, `team2`, `group`, `round`, `date`, `time_local`, `time_
   `match` is null, the team has no more scheduled games.
 - **"What were yesterday's results?"** → `worldcup.sh results yesterday` (or an explicit date). For
   each match give `Team1 score–score Team2`. If empty, say there were no finished games that day.
+  **`results` takes a DATE only (or today/yesterday/tomorrow) — never a team name.** `results Brazil`
+  returns nothing; to get one team's result use `last`/`schedule` as in the next recipe.
 - **"What was the result of X vs Y?" (a specific past match)** → there is no two-team results command,
   so don't invent a flag. Run `worldcup.sh schedule <X>`, find the entry whose opponent is `<Y>` and
   whose `status` is `finished`, and read `score.ft` (and `winner`). Report it as `X a–b Y`
@@ -109,15 +114,36 @@ Each match has: `team1`, `team2`, `group`, `round`, `date`, `time_local`, `time_
 - **Schedule / fixtures of a team** → `worldcup.sh schedule <Team>`.
 
 ## Predictions ("What will the score be in tomorrow's X vs Y?")
-1. Run `worldcup.sh fixture <Team1> <Team2>` (the command is `fixture`; `predict` is an accepted
-   alias for it — there is no other prediction command). Use FIFA codes or quote multi-word names,
-   e.g. `worldcup.sh fixture CAN BIH` or `worldcup.sh fixture "Canada" "Bosnia & Herzegovina"`.
-2. The JSON gives you: `scheduled` (the upcoming match, or null if not on the schedule yet),
-   `head_to_head` (past World Cup meetings + a win/draw summary), `form` (each team's last finished
-   matches with a W/D/L + goals record), and `group_standings` (each team's current group position).
-3. Reason over that evidence and give a **predicted scoreline** (e.g. "אני מהמר על 2–1 לשווייץ")
-   plus a one-line justification grounded in the data (form, head-to-head, standings). Remember it's
-   the group stage — **a draw (e.g. תיקו 1–1) is a legitimate prediction**, don't force a winner.
-4. Make it clearly an opinion/prediction, not a fact — this is a guess, and have fun with it.
-5. If `scheduled` is null, note there's no such fixture on the schedule yet (e.g. a possible knockout
-   matchup) but you can still predict based on history and form.
+Predicting a scoreline is ALWAYS **exactly two tool calls, in order** — never stop after the first:
+
+**Call 1 — get the evidence:** `worldcup.sh fixture <Team1> <Team2>` (the command is `fixture`;
+`predict` is an accepted alias — there is no other prediction command). Use FIFA codes or quote
+multi-word names, e.g. `worldcup.sh fixture CAN BIH`. The JSON gives `scheduled` (the upcoming match,
+or null if not paired yet), `head_to_head`, `form` (each team's recent W/D/L + goals), and
+`group_standings`. Decide a **predicted scoreline** from it — and remember it's the group stage, so
+**a draw (e.g. 1–1) is a legitimate call**, don't force a winner.
+
+**Call 2 — SAVE the bet (mandatory, do it before you reply):**
+`worldcup.sh bet <Team1> <Team2> <score> [date]` — e.g. `worldcup.sh bet POR COD 2-0`. Teams in the
+SAME order as the score; score as `goals1-goals2` (`2-0`, or `1-1` for a draw). The date is filled in
+from the scheduled game automatically — only pass an explicit `date` for an unscheduled future
+knockout. Re-betting the same game overwrites the previous call. **A prediction is not finished until
+this call succeeds** — if you skip it, you won't be able to `review` it later.
+
+Only after both calls, write your reply: the scoreline + a one-line justification (form, H2H,
+standings), as a fun opinion/guess (not a fact). If `scheduled` was null and you had no date to pass,
+say there's no such fixture scheduled yet but you can still predict from history and form.
+
+## Reviewing your bets ("how did my guesses do? what can I improve?")
+Bets are saved in the service (see the Predictions section's Call 2), so you grade them with one command — do NOT
+re-fetch results by hand, and do NOT invent commands like `recent_predictions`/`get_results`.
+
+- **One pairing:** `worldcup.sh review <Team1> <Team2>` (e.g. `review BRA MAR`) grades your latest bet
+  on that game.
+- **A whole day:** `worldcup.sh review <date>` (e.g. `review 2026-06-13`) grades every bet whose game
+  was on that date and returns a `summary` (counts of exact / outcome / miss / pending).
+
+Each graded bet tells you `result`: **`exact`** (score spot-on), **`outcome`** (right winner or draw,
+wrong score), or **`miss`**; plus `predicted` vs `actual`. `status:"pending"` means the game hasn't
+finished yet — say so and don't grade it. Report it warmly, e.g. "ניחשתי 2–1 לברזיל, יצא 1–1 — פספוס,
+אבל קלעתי לכיוון 😅", tally the hits, and add one short note on what to improve next time.
