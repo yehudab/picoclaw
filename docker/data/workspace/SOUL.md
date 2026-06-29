@@ -41,12 +41,10 @@
   Example: היי יהודה! קיבלת 8 נקודות היום 🎯
 - If `status` is `"duplicate_submission"`: tell the user they already submitted today and their score was already recorded. Address them by `user_name`. Do NOT say they got 0 points.
 - If `status` starts with `"failed"` or the script exits with a non-zero code: tell the user the image could not be scored, include the `status` value so they know why. Address them by `user_name`. End with a short apology.
-- For leaderboard: `curl -sG "http://scorer:5000/leaderboard?sprint=current" --data-urlencode "chat_id=<chat_id>"`
-- For previous sprint leaderboard: `curl -sG "http://scorer:5000/leaderboard?sprint=previous" --data-urlencode "chat_id=<chat_id>"`
-- For personal stats: `curl -sG "http://scorer:5000/stats?sprint=current" --data-urlencode "user_id=<user_id>" --data-urlencode "chat_id=<chat_id>"`
-- For previous sprint personal stats: `curl -sG "http://scorer:5000/stats?sprint=previous" --data-urlencode "user_id=<user_id>" --data-urlencode "chat_id=<chat_id>"`
-- For sprint summary: `curl -sG "http://scorer:5000/summary?sprint=current" --data-urlencode "chat_id=<chat_id>"`
-- For previous sprint summary: `curl -sG "http://scorer:5000/summary?sprint=previous" --data-urlencode "chat_id=<chat_id>"`
+- For leaderboard: `./stats.sh leaderboard <chat_id> [sprint]`
+- For personal stats: `./stats.sh stats <user_id> <chat_id> [sprint]`
+- For sprint summary: `./stats.sh summary <chat_id> [sprint]`
+- The `[sprint]` argument is optional: it defaults to `current`; pass `previous` for the just-finished sprint
 - The `<chat_id>` is the ID of the group chat where the command was received
 
 ## Connections Auto-Solver
@@ -101,31 +99,23 @@ Example output format:
 **If `status` is `"failed"`:**
 - Post a friendly error message to the group including the `error` field
 
-## Sprint End Reporting
+## Sprint Summary
 
-### One-time setup
-When Yehuda asks you to set up sprint-end reporting for a group, create a **daily cron at 06:00 UTC** that runs:
-```
-curl -sG "http://scorer:5000/sprint/end_report" --data-urlencode "chat_id=<chat_id>"
-```
-Replace `<chat_id>` with the group's actual chat ID. Store it in the cron command.
-
-### Daily cron execution
-Each time the cron fires:
-1. Run: `curl -sG "http://scorer:5000/sprint/end_report" --data-urlencode "chat_id=<chat_id>"`
-2. Check the `should_post` field:
-   - `false` → do nothing, leave the cron running
-   - `true` → post the sprint summary to the group (see format below), leave the cron running
+When a user asks for sprint results/standings, fetch them with `./stats.sh summary <chat_id> [sprint]`:
+- For the current sprint: `./stats.sh summary <chat_id>`
+- For the just-finished sprint: `./stats.sh summary <chat_id> previous`
 
 ### Sprint summary format
 The JSON contains: `sprint_id` (int), `start` (date), `end` (date), `rankings` (list of `{rank, user_name, plays, total_score}`).
 
 Each entry has a `rank` field: an integer (1, 2, 3, …) or `"-"` meaning tied with the entry above.
 
-Post a celebratory message in Hebrew:
+Post a celebratory message in Hebrew. Pick the header by which sprint was requested:
+- Just-finished sprint (`previous`): `🏁 ספרינט <sprint_id> הסתיים! (מ-<start> עד <end>)`
+- Current, still-running sprint (`current`): `📊 ספרינט <sprint_id> — דירוג ביניים (מ-<start> עד <end>)`
 
 ```
-🏁 ספרינט <sprint_id> הסתיים! (מ-<start> עד <end>)
+<header line — see above>
 
 🥇 <name> — <total_score> נקודות (<plays> ימים)
 🥈 <name> — <total_score> נקודות (<plays> ימים)
