@@ -43,13 +43,18 @@ if ! docker exec picoclaw-gateway wget -q -T 5 -O /dev/null http://scorer:5000/h
 	exit 0
 fi
 
-# 3a) recent WhatsApp connection error (e.g. 405 "Client outdated" when whatsmeow
-#     falls behind WhatsApp's required client version). whatsmeow logs these to its
-#     OWN stdout (waLog.Stdout) -> the container log captured by `docker logs`, NOT
-#     the JSON file logger, so we must grep the container log here. whatsmeow logs
-#     it at connect time then goes quiet, which is why 3b backstops it.
+# 3a) recent WhatsApp connection error, EITHER:
+#     - a whatsmeow error (e.g. 405 "Client outdated" when whatsmeow falls behind
+#       WhatsApp's required client version). whatsmeow logs these to its OWN stdout
+#       (waLog.Stdout) -> the container log captured by `docker logs`, NOT the JSON
+#       file logger, so we must grep the container log here. whatsmeow logs it at
+#       connect time then goes quiet, which is why 3b backstops it.
+#     - a picoclaw "WhatsApp reconnect failed" line, emitted every ~5m while the
+#       channel is stuck retrying (e.g. "invalid use of deleted device" after a
+#       server-side logout). This is a warn-level line that 3b MISSES because the
+#       retry loop keeps the log fresh forever (dead-but-chatty), so match it here.
 WA_ERR_LOOKBACK="60m"
-if docker logs --since "$WA_ERR_LOOKBACK" picoclaw-gateway 2>&1 | grep -aqE 'WhatsApp ERROR|Client outdated'; then
+if docker logs --since "$WA_ERR_LOOKBACK" picoclaw-gateway 2>&1 | grep -aqE 'WhatsApp ERROR|Client outdated|reconnect failed'; then
 	log "DOWN: WhatsApp error in container log within $WA_ERR_LOOKBACK (heartbeat withheld)"
 	exit 0
 fi
