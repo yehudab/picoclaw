@@ -3,6 +3,7 @@ package slack
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 
@@ -187,9 +188,19 @@ func (c *SlackChannel) SendMedia(ctx context.Context, msg bus.OutboundMediaMessa
 			title = filename
 		}
 
-		_, err = c.api.UploadFileV2Context(ctx, slack.UploadFileV2Parameters{
+		info, statErr := os.Stat(localPath)
+		if statErr != nil {
+			logger.ErrorCF("slack", "Failed to stat media", map[string]any{
+				"path":  localPath,
+				"error": statErr.Error(),
+			})
+			continue
+		}
+
+		_, err = c.api.UploadFileContext(ctx, slack.UploadFileParameters{
 			Channel:  channelID,
 			File:     localPath,
+			FileSize: int(info.Size()),
 			Filename: filename,
 			Title:    title,
 		})
@@ -202,7 +213,7 @@ func (c *SlackChannel) SendMedia(ctx context.Context, msg bus.OutboundMediaMessa
 		}
 	}
 
-	// UploadFileV2 does not expose the posted message timestamp in its
+	// UploadFile does not expose the posted message timestamp in its
 	// response; returning nil avoids conflating file IDs with message IDs.
 	return nil, nil
 }
