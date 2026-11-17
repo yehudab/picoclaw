@@ -10,6 +10,7 @@ package whatsapp
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -46,6 +47,9 @@ const (
 	reconnectInitial    = 5 * time.Second
 	reconnectMax        = 5 * time.Minute
 	reconnectMultiplier = 2.0
+
+	// aliveInterval is how often aliveLoop logs "WhatsApp alive" while healthy.
+	aliveInterval = 5 * time.Minute
 )
 
 // WhatsAppNativeChannel implements the WhatsApp channel using whatsmeow (in-process, no external bridge).
@@ -210,10 +214,45 @@ func (c *WhatsAppNativeChannel) Start(ctx context.Context) error {
 		}
 	}
 
+	c.reconnectMu.Lock()
+	if c.stopping.Load() {
+		c.reconnectMu.Unlock()
+		return fmt.Errorf("channel stopped during start")
+	}
+	c.wg.Add(1)
+	c.reconnectMu.Unlock()
+	go func() {
+		defer c.wg.Done()
+		c.aliveLoop()
+	}()
+
 	startOK = true
 	c.SetRunning(true)
 	logger.InfoC("whatsapp", "WhatsApp native channel connected")
 	return nil
+}
+
+// aliveLoop logs "WhatsApp alive" every aliveInterval while the client is
+// connected and logged in. The StatusCake heartbeat script uses this line as a
+// positive liveness signal, so it doesn't depend on chat traffic keeping
+// gateway.log fresh. Keep the message text in sync with
+// scripts/statuscake-heartbeat.sh.
+func (c *WhatsAppNativeChannel) aliveLoop() {
+	ticker := time.NewTicker(aliveInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-c.runCtx.Done():
+			return
+		case <-ticker.C:
+			c.mu.Lock()
+			client := c.client
+			c.mu.Unlock()
+			if client != nil && client.IsConnected() && client.IsLoggedIn() {
+				logger.InfoC("whatsapp", "WhatsApp alive")
+			}
+		}
+	}
 }
 
 func (c *WhatsAppNativeChannel) Stop(ctx context.Context) error {
@@ -276,6 +315,14 @@ func (c *WhatsAppNativeChannel) eventHandler(evt any) {
 	switch evt.(type) {
 	case *events.Message:
 		c.handleIncoming(evt.(*events.Message))
+	case *events.LoggedOut:
+		// Server-side logout (device removed, account banned, etc.). whatsmeow
+		// does not reconnect after this; a QR relink is needed.
+		lo := evt.(*events.LoggedOut)
+		logger.ErrorCF("whatsapp", "WhatsApp logged out", map[string]any{
+			"on_connect": lo.OnConnect,
+			"reason":     lo.Reason.String(),
+		})
 	case *events.Disconnected:
 		logger.InfoCF("whatsapp", "WhatsApp disconnected, will attempt reconnection", nil)
 		c.reconnectMu.Lock()
@@ -322,10 +369,24 @@ func (c *WhatsAppNativeChannel) reconnectWithBackoff() {
 			return
 		}
 
+		// whatsmeow's own auto-reconnect (EnableAutoReconnect, on by default)
+		// usually restores the connection within seconds of a routine
+		// Disconnected event. Calling Connect() then fails with
+		// ErrAlreadyConnected; treat that as success instead of retrying
+		// forever and logging "reconnect failed" every few minutes.
+		if client.IsConnected() {
+			logger.InfoC("whatsapp", "WhatsApp already reconnected by whatsmeow")
+			return
+		}
+
 		logger.InfoCF("whatsapp", "WhatsApp reconnecting", map[string]any{"backoff": backoff.String()})
 		err := client.Connect()
 		if err == nil {
 			logger.InfoC("whatsapp", "WhatsApp reconnected")
+			return
+		}
+		if errors.Is(err, whatsmeow.ErrAlreadyConnected) {
+			logger.InfoC("whatsapp", "WhatsApp already reconnected by whatsmeow")
 			return
 		}
 

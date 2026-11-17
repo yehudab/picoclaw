@@ -5,11 +5,12 @@
 #   1. picoclaw-gateway container is running AND Docker health = healthy
 #   2. the gateway can reach the scorer at http://scorer:5000/health
 #   3. WhatsApp is not in a failed state, detected by EITHER of:
-#        (a) a WhatsApp error (e.g. 405 "Client outdated") in the container log
-#            within WA_ERR_LOOKBACK, OR
-#        (b) the gateway JSON log gone stale beyond WA_LOG_STALE_SECS (the silent
-#            stall after whatsmeow stops retrying). (a) catches the failure instantly;
-#            (b) holds the alert through the silent tail so it doesn't false-recover.
+#        (a) a WhatsApp error (e.g. 405 "Client outdated", server-side logout) in
+#            the container log within WA_ERR_LOOKBACK, OR
+#        (b) no recent "WhatsApp alive" line in gateway.log. The channel logs it
+#            every 5 min while whatsmeow is connected AND logged in, so it doesn't
+#            depend on chat traffic. (a) catches known failures instantly; (b)
+#            catches everything else and holds the alert until WhatsApp is back.
 #
 # When a check fails we deliberately DO NOT ping, so StatusCake sees the
 # heartbeat stop and alerts. Set the StatusCake Push monitor's period longer
@@ -43,39 +44,55 @@ if ! docker exec picoclaw-gateway wget -q -T 5 -O /dev/null http://scorer:5000/h
 	exit 0
 fi
 
-# 3a) recent WhatsApp connection error, EITHER:
-#     - a whatsmeow error (e.g. 405 "Client outdated" when whatsmeow falls behind
-#       WhatsApp's required client version). whatsmeow logs these to its OWN stdout
-#       (waLog.Stdout) -> the container log captured by `docker logs`, NOT the JSON
-#       file logger, so we must grep the container log here. whatsmeow logs it at
-#       connect time then goes quiet, which is why 3b backstops it.
-#     - a picoclaw "WhatsApp reconnect failed" line, emitted every ~5m while the
-#       channel is stuck retrying (e.g. "invalid use of deleted device" after a
-#       server-side logout). This is a warn-level line that 3b MISSES because the
-#       retry loop keeps the log fresh forever (dead-but-chatty), so match it here.
+# 3a) a known WhatsApp failure in the container log:
+#     - a whatsmeow error, e.g. 405 "Client outdated" when whatsmeow falls behind
+#       WhatsApp's required client version. whatsmeow logs to its OWN stdout
+#       (waLog.Stdout), i.e. only to `docker logs`, never to gateway.log.
+#     - picoclaw's "WhatsApp logged out" (events.LoggedOut) or a reconnect error
+#       with "invalid use of deleted device" (server-side logout / device removed).
+#     NB: plain "reconnect failed" is deliberately NOT matched any more. It mostly
+#     came from a benign race with whatsmeow's auto-reconnect ("websocket is
+#     already connected"), which kept the heartbeat withheld forever. 3b covers
+#     real reconnect failures.
 WA_ERR_LOOKBACK="60m"
-if docker logs --since "$WA_ERR_LOOKBACK" picoclaw-gateway 2>&1 | grep -aqE 'WhatsApp ERROR|Client outdated|reconnect failed'; then
+if docker logs --since "$WA_ERR_LOOKBACK" picoclaw-gateway 2>&1 | grep -aqE 'WhatsApp ERROR|Client outdated|WhatsApp logged out|invalid use of deleted device'; then
 	log "DOWN: WhatsApp error in container log within $WA_ERR_LOOKBACK (heartbeat withheld)"
 	exit 0
 fi
 
-# 3b) log-staleness backstop: a healthy gateway writes gateway.log at least every
-#     ~5 min (WhatsApp activity); when WhatsApp dies and whatsmeow stops retrying the
-#     file goes completely silent (observed 80+ min frozen). Threshold has margin over
-#     the ~5-min healthy max gap to avoid false alarms.
-#     NB: VERIFY this holds after the whatsmeow bump — if the new build's healthy
-#     connection is quieter (less reconnect churn), raise WA_LOG_STALE_SECS.
+# 3b) positive liveness: the newest "WhatsApp alive" line in gateway.log must be
+#     younger than WA_ALIVE_MAX_AGE_SECS (logged every 5 min -> 12 min allows one
+#     missed tick plus cron jitter). After a gateway restart the first alive line
+#     comes ~5 min in, well within one StatusCake period.
+#     Fallback: if gateway.log has NO alive line at all (a build older than the
+#     alive ticker), use the old staleness check (log untouched > 900s) instead.
+WA_ALIVE_MAX_AGE_SECS=720
 WA_LOG_STALE_SECS=900
 GATEWAY_LOG="/home/ubuntu/picoclaw/docker/data/logs/gateway.log"
-last_log_ts="$(tail -1 "$GATEWAY_LOG" 2>/dev/null | grep -oE '"time":"[^"]*"' | head -1 | cut -d'"' -f4)"
-if [ -z "$last_log_ts" ]; then
-	log "DOWN: gateway.log unreadable/empty (heartbeat withheld)"
-	exit 0
-fi
-log_age=$(( $(date -u +%s) - $(date -u -d "$last_log_ts" +%s 2>/dev/null || echo 0) ))
-if [ "$log_age" -gt "$WA_LOG_STALE_SECS" ]; then
-	log "DOWN: gateway.log stale ${log_age}s (>${WA_LOG_STALE_SECS}s) - process stalled (heartbeat withheld)"
-	exit 0
+
+# age in seconds of the "time" field of a gateway.log JSON line on stdin (empty if none)
+line_age() {
+	ts="$(grep -oE '"time":"[^"]*"' | head -1 | cut -d'"' -f4)"
+	[ -n "$ts" ] || return 0
+	echo $(( $(date -u +%s) - $(date -u -d "$ts" +%s 2>/dev/null || echo 0) ))
+}
+
+alive_age="$(grep -a '"message":"WhatsApp alive"' "$GATEWAY_LOG" 2>/dev/null | tail -1 | line_age)"
+if [ -n "$alive_age" ]; then
+	if [ "$alive_age" -gt "$WA_ALIVE_MAX_AGE_SECS" ]; then
+		log "DOWN: last WhatsApp alive ${alive_age}s ago (>${WA_ALIVE_MAX_AGE_SECS}s) (heartbeat withheld)"
+		exit 0
+	fi
+else
+	log_age="$(tail -1 "$GATEWAY_LOG" 2>/dev/null | line_age)"
+	if [ -z "$log_age" ]; then
+		log "DOWN: gateway.log unreadable/empty (heartbeat withheld)"
+		exit 0
+	fi
+	if [ "$log_age" -gt "$WA_LOG_STALE_SECS" ]; then
+		log "DOWN: no alive line yet and gateway.log stale ${log_age}s (>${WA_LOG_STALE_SECS}s) (heartbeat withheld)"
+		exit 0
+	fi
 fi
 
 # healthy -> send heartbeat
