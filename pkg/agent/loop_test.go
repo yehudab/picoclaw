@@ -3058,6 +3058,7 @@ func (t *silentOnlyTool) Description() string { return "silent tool" }
 func (t *silentOnlyTool) Parameters() map[string]any {
 	return map[string]any{"type": "object", "properties": map[string]any{}}
 }
+
 func (t *silentOnlyTool) Execute(ctx context.Context, args map[string]any) *tools.ToolResult {
 	return &tools.ToolResult{ForLLM: "silent done", Silent: true}
 }
@@ -3070,6 +3071,7 @@ func (t *nonSilentTool) Description() string { return "non-silent tool" }
 func (t *nonSilentTool) Parameters() map[string]any {
 	return map[string]any{"type": "object", "properties": map[string]any{}}
 }
+
 func (t *nonSilentTool) Execute(ctx context.Context, args map[string]any) *tools.ToolResult {
 	return &tools.ToolResult{ForLLM: "exec result", Silent: false}
 }
@@ -3137,8 +3139,8 @@ func TestProcessMessage_SilentOnlyToolYieldsNoDefaultResponse(t *testing.T) {
 // non-silent tool, iteration 3 returns a text response. Models the scoring flow:
 // reaction(👀) → score.sh → "קיבלת X נקודות".
 type silentThenNonSilentThenTextProvider struct {
-	calls           int
-	silentToolName  string
+	calls             int
+	silentToolName    string
 	nonSilentToolName string
 }
 
@@ -3211,8 +3213,8 @@ func TestProcessMessage_SilentReactionThenExecYieldsTextResponse(t *testing.T) {
 // iteration 2 returns empty content. Since the last iteration was NOT all-silent,
 // the defaultResponse fallback must still fire.
 type mixedSilentThenEmptyProvider struct {
-	calls           int
-	silentToolName  string
+	calls             int
+	silentToolName    string
 	nonSilentToolName string
 }
 

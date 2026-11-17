@@ -100,7 +100,7 @@ const (
 )
 
 // SecureStrings is a slice of SecureString
-type SecureStrings []*SecureString
+type SecureStrings []*SecureString //nolint:recvcheck // MarshalJSON needs a value receiver (non-addressable values), UnmarshalJSON a pointer
 
 // Values returns the decrypted/resolved values
 func (s *SecureStrings) Values() []string {

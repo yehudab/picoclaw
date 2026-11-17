@@ -301,7 +301,7 @@ func (c *BaseChannel) HandleMessage(
 				c.placeholderRecorder.RecordTypingStop(c.name, chatID, stop)
 			}
 		}
-// Placeholder — independent pipeline.
+		// Placeholder — independent pipeline.
 		// Skip when the message contains audio: the agent will send the
 		// placeholder after transcription completes, so the user sees
 		// "Thinking…" only once the voice has been processed.

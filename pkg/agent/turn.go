@@ -69,13 +69,13 @@ type turnState struct {
 
 	followUps []bus.InboundMessage
 
-	gracefulInterrupt          bool
-	gracefulInterruptHint      string
-	gracefulTerminalUsed       bool
-	hardAbort                  bool
-	lastIterationAllSilent     bool // true when every tool in the last iteration was Silent
-	providerCancel        context.CancelFunc
-	turnCancel            context.CancelFunc
+	gracefulInterrupt      bool
+	gracefulInterruptHint  string
+	gracefulTerminalUsed   bool
+	hardAbort              bool
+	lastIterationAllSilent bool // true when every tool in the last iteration was Silent
+	providerCancel         context.CancelFunc
+	turnCancel             context.CancelFunc
 
 	restorePointHistory []providers.Message
 	restorePointSummary string
