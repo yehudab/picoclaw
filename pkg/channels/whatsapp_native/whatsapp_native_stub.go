@@ -1,4 +1,4 @@
-//go:build !whatsapp_native
+//go:build !whatsapp_native || mipsle || netbsd || (freebsd && arm)
 
 package whatsapp
 
@@ -10,7 +10,9 @@ import (
 	"github.com/sipeed/picoclaw/pkg/config"
 )
 
-// NewWhatsAppNativeChannel returns an error when the binary was not built with -tags whatsapp_native.
+// NewWhatsAppNativeChannel returns an error when the binary was not built with -tags whatsapp_native,
+// or targets a platform where modernc.org/sqlite does not compile (linux/mipsle,
+// netbsd/*, freebsd/arm; see pkg/gateway/channel_matrix.go for details).
 // Build with: go build -tags whatsapp_native ./cmd/...
 func NewWhatsAppNativeChannel(
 	cfg config.WhatsAppConfig,

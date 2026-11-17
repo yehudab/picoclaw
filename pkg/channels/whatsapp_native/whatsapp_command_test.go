@@ -1,4 +1,4 @@
-//go:build whatsapp_native
+//go:build whatsapp_native && !mipsle && !netbsd && !(freebsd && arm)
 
 package whatsapp
 
