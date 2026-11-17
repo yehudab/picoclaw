@@ -10,6 +10,7 @@ linters:
     - dupword
     - err113
     - exhaustruct
+    - exhaustruct_v5 # newer variant of exhaustruct in recent golangci-lint
     - funcorder
     - gochecknoglobals
     - godot
@@ -27,6 +28,7 @@ linters:
     - wsl_v5
 
     # TODO: Disabled, because they are failing at the moment, we should fix them and enable (step by step)
+    - canonicalheader # header casing in upstream code (pico.go, codex_provider.go)
     - contextcheck
     - embeddedstructfieldcheck
     - errcheck
